@@ -1,4 +1,6 @@
 (() => {
+  window.CREOVATE_SUPABASE_URL = window.CREOVATE_SUPABASE_URL || 'https://makiwckhhycpjhfqtail.supabase.co';
+  window.CREOVATE_SUPABASE_KEY = window.CREOVATE_SUPABASE_KEY || 'sb_publishable_hh6nQhgj140KaE0_IjykQw_Wm6oJj3c';
   const toggle = document.querySelector('.menu-toggle');
   const nav = document.querySelector('#site-nav');
   if (toggle && nav) {
@@ -65,7 +67,7 @@
       const priceElement = card.querySelector('.price');
       if (priceElement) priceElement.innerHTML = `${formatNaira(activeLaunch() ? item.launch_price : item.standard_price)} <del>${formatNaira(activeLaunch() ? item.standard_price : item.launch_price)}</del>`;
       const meta = card.querySelector('.meta');
-      if (meta) meta.textContent = `Delivery: ${item.delivery_time}`;
+      if (meta && item.delivery_time) meta.textContent = `Delivery: ${item.delivery_time}`;
     });
     Array.from(service.options).forEach(option => {
       const item = services.find(serviceItem => serviceItem.name === option.textContent.trim());
