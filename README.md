@@ -1,6 +1,6 @@
 # CREOVATE - DesignHub static site
 
-This is the free, deployable public-site phase. It contains the marketing page, service details, WhatsApp order links, portfolio links, policies, responsive styling, and search-engine files.
+This is the free, deployable public-site phase. It contains the marketing page, service details, a client-side design-brief form that opens a completed WhatsApp message, portfolio links, policies, responsive styling, and search-engine files.
 
 ## Before publishing
 

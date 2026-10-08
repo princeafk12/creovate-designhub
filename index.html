@@ -35,6 +35,7 @@
       <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
       <nav id="site-nav" class="site-nav" aria-label="Main navigation">
         <a href="#services">Services</a>
+        <a href="#brief">Send a brief</a>
         <a href="#work">Portfolio</a>
         <a href="#how">How it works</a>
         <a href="#validator">Validator</a>
@@ -49,11 +50,11 @@
     <section id="top" class="hero">
       <div class="wrap hero-grid">
         <div>
-          <p class="eyebrow">15 of 15 launch spots left</p>
+          <p class="eyebrow">Launch offer: first 15 bookings only</p>
           <h1>Professional design, delivered in 24 hours.</h1>
           <p class="hero-copy">Logos, flyers, social posts, business cards and full brand kits for businesses that want to look the part, at prices that make sense.</p>
           <div class="actions">
-            <a class="button button-lime" href="#services">Start an order</a>
+            <a class="button button-lime" href="#brief">Send your brief</a>
             <a class="button button-outline" href="https://drive.google.com/drive/folders/1Lfp6BQux8iWElEoBP7RST6SMnOsolIB3?usp=drive_link" target="_blank" rel="noopener noreferrer">View our work</a>
           </div>
         </div>
@@ -65,7 +66,7 @@
     </section>
 
     <section class="offer-band" aria-label="Launch offer">
-      <div class="wrap"><strong>30% off</strong> every design service for the first <strong>15</strong> customers.</div>
+      <div class="wrap"><strong>30% off</strong> every design service for the first <strong>15 bookings after launch</strong>. Standard prices apply after those bookings are taken.</div>
     </section>
 
     <section id="services" class="section section-light">
@@ -85,15 +86,39 @@
       </div>
     </section>
 
-    <section id="how" class="section section-purple"><div class="wrap"><p class="eyebrow">How it works</p><h2>Four simple steps.</h2><div class="steps"><div class="step"><b>01</b><h3>Message us</h3><p>Tap Order on any service. Your message arrives pre-filled.</p></div><div class="step"><b>02</b><h3>Share your brief</h3><p>Tell us exactly what you need and send your text, logo and photos.</p></div><div class="step"><b>03</b><h3>Pay and confirm</h3><p>We confirm the price, then you pay in full. Work starts once payment is confirmed.</p></div><div class="step"><b>04</b><h3>Receive your design</h3><p>Delivered by email or Google Drive, as you prefer.</p></div></div></div></section>
+    <section id="brief" class="section section-light brief-section">
+      <div class="wrap narrow brief-wrap">
+        <p class="eyebrow eyebrow-dark">Start your order</p>
+        <h2>Tell us exactly what you want.</h2>
+        <p class="section-intro">Fill in this short brief and it will open in WhatsApp as one clear message. Include the look, wording, colours and references you have in mind so we can understand the job before we reply.</p>
+        <form id="brief-form" class="brief-form">
+          <div class="form-grid">
+            <label class="form-field">Your name<input name="name" type="text" autocomplete="name" required></label>
+            <label class="form-field">Email address<input name="email" type="email" autocomplete="email" required></label>
+            <label class="form-field">Business name<input name="business" type="text" required></label>
+            <label class="form-field">Brand name to show on the design<input name="brand" type="text" required></label>
+            <label class="form-field">What do you need?<select name="service" required><option value="" selected disabled>Choose a service</option><option>Logo design</option><option>Flyer / poster</option><option>Social media post</option><option>Social media pack</option><option>Business card</option><option>Full brand kit</option></select></label>
+            <label class="form-field">When do you need it?<input name="deadline" type="text" placeholder="For example: this Friday"></label>
+            <label class="form-field form-field-full">Tell us about your business or brand<textarea name="description" rows="4" required placeholder="What do you do, who is it for, and what should people understand?"></textarea></label>
+            <label class="form-field form-field-full">Describe how you want it to look<textarea name="direction" rows="4" required placeholder="Colours, mood, layout, style, examples you like, and anything you want us to avoid."></textarea></label>
+            <label class="form-field form-field-full">What should the design say?<textarea name="copy" rows="4" placeholder="Final wording, offer, phone number, address, social handle, event details, or other text."></textarea></label>
+            <label class="form-field form-field-full">Reference link(s), if any<input name="references" type="url" placeholder="Paste a Drive, Instagram, Pinterest or other reference link"></label>
+          </div>
+          <div class="brief-actions"><button class="button button-dark" type="submit">Send brief on WhatsApp</button><p class="form-note">Your email is included in the WhatsApp message so we know where to reply. You can send photos or files in WhatsApp after the brief opens.</p></div>
+          <p id="brief-status" class="form-status" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+
+    <section id="how" class="section section-purple"><div class="wrap"><p class="eyebrow">How it works</p><h2>Four simple steps.</h2><div class="steps"><div class="step"><b>01</b><h3>Fill the brief</h3><p>Choose a service and tell us about your business, wording and preferred look.</p></div><div class="step"><b>02</b><h3>We review it</h3><p>We reply on WhatsApp, confirm what is included and clarify anything missing.</p></div><div class="step"><b>03</b><h3>Pay and confirm</h3><p>We confirm the price, then you pay in full. Work starts once payment is confirmed.</p></div><div class="step"><b>04</b><h3>Receive your design</h3><p>Delivered by email or Google Drive, as you prefer.</p></div></div></div></section>
 
     <section id="work" class="section section-light"><div class="wrap portfolio-block"><div><p class="eyebrow eyebrow-dark">Our work</p><h2>See real designs in our full portfolio.</h2><p class="section-intro">Browse logos, flyers, social posts and brand work in the CREOVATE Google Drive folder.</p></div><a class="button button-dark" href="https://drive.google.com/drive/folders/1Lfp6BQux8iWElEoBP7RST6SMnOsolIB3?usp=drive_link" target="_blank" rel="noopener noreferrer">View full portfolio</a></div></section>
 
     <section id="validator" class="section validator"><div class="wrap validator-box"><div><p class="eyebrow">Free Business Validator</p><h2>Make the idea clearer before you spend.</h2><p>Live research, startup requirements, competition, cost ranges and risks are planned for a later phase. This tool will be guidance, not professional advice.</p></div><span class="coming-soon">Coming soon</span></div></section>
 
-    <section id="faq" class="section section-light"><div class="wrap narrow"><p class="eyebrow eyebrow-dark">FAQ</p><h2>Questions, answered.</h2><details><summary>How do I order?</summary><p>Tap Order on WhatsApp on any service, share your brief, agree the price and pay. We start once payment is confirmed.</p></details><details><summary>How fast is delivery?</summary><p>24 hours for a logo, flyer/poster, social post and business card; 5 days for the social pack; 10 days for the brand kit.</p></details><details><summary>What formats do I receive?</summary><p>PDF and PNG, sent by email or Google Drive, whichever you prefer.</p></details><details><summary>Can I request changes?</summary><p>We do not offer free revisions or changes after delivery. If the work does not match your brief, we fix it free.</p></details><details><summary>Can I get a refund?</summary><p>Yes, if you cancel before delivery or if we fail to deliver. After delivery, payments are non-refundable.</p></details><details><summary>Can I rush an order?</summary><p>Only for the social media pack and full brand kit, for 30% extra, with the time agreed first.</p></details><details><summary>Do I own my design?</summary><p>Yes, once you have paid in full. We may show it in our portfolio unless you ask us not to.</p></details></div></section>
+    <section id="faq" class="section section-light"><div class="wrap narrow"><p class="eyebrow eyebrow-dark">FAQ</p><h2>Questions, answered.</h2><details><summary>How do I order?</summary><p>Fill in the brief form, send it through WhatsApp, agree the price and pay. We start once payment is confirmed.</p></details><details><summary>What should I include in my brief?</summary><p>Tell us your business name, brand name, what you do, the exact wording, preferred colours or style, and anything you want the design to look like. You can send photos and files in WhatsApp after the form opens.</p></details><details><summary>How fast is delivery?</summary><p>24 hours for a logo, flyer/poster, social post and business card; 5 days for the social pack; 10 days for the brand kit.</p></details><details><summary>What formats do I receive?</summary><p>PDF and PNG, sent by email or Google Drive, whichever you prefer.</p></details><details><summary>Can I request changes?</summary><p>We do not offer free revisions or changes after delivery. If the work does not match your brief, we fix it free.</p></details><details><summary>Can I get a refund?</summary><p>Yes, if you cancel before delivery or if we fail to deliver. After delivery, payments are non-refundable.</p></details><details><summary>Can I rush an order?</summary><p>Only for the social media pack and full brand kit, for 30% extra, with the time agreed first.</p></details><details><summary>Do I own my design?</summary><p>Yes, once you have paid in full. We may show it in our portfolio unless you ask us not to.</p></details></div></section>
 
-    <section id="policies" class="section section-purple"><div class="wrap narrow"><p class="eyebrow">Terms &amp; policies</p><h2>Clear expectations for every order.</h2><details><summary>Payment</summary><p>Full payment must be confirmed before any work starts.</p></details><details><summary>Delivery</summary><p>Delivery time counts from confirmed payment and a complete brief. Files are delivered by email or Google Drive in PDF and PNG.</p></details><details><summary>Meeting the brief</summary><p>We deliver what your approved brief describes. If it does not match, we correct it at no charge.</p></details><details><summary>No revisions</summary><p>No free revisions and no changes after delivery. Please give a clear, complete brief first.</p></details><details><summary>Cancellation and refunds</summary><p>Cancel before delivery for a full refund within 5 working days. We also refund in full if we fail to deliver. After delivery, no refunds.</p></details><details><summary>Ownership</summary><p>Once paid in full, you own the final design. We may show it in our portfolio unless you ask us not to.</p></details><details><summary>Privacy</summary><p>We collect only what we need to deliver your order. We do not sell your data, and you may contact us to access, correct or delete it. This short policy should be reviewed by a Nigerian lawyer before launch.</p></details><p class="lawyer-note">These policies are a draft and should be reviewed by a Nigerian lawyer before launch.</p></div></section>
+    <section id="policies" class="section section-purple"><div class="wrap narrow"><p class="eyebrow">Terms &amp; policies</p><h2>Clear expectations for every order.</h2><details><summary>Payment</summary><p>Full payment must be confirmed before any work starts.</p></details><details><summary>Delivery</summary><p>Delivery time counts from confirmed payment and a complete brief. Files are delivered by email or Google Drive in PDF and PNG.</p></details><details><summary>Meeting the brief</summary><p>We deliver what your approved brief describes. If it does not match, we correct it at no charge.</p></details><details><summary>No revisions</summary><p>No free revisions and no changes after delivery. Please give a clear, complete brief first.</p></details><details><summary>Cancellation and refunds</summary><p>Cancel before delivery for a full refund within 5 working days. We also refund in full if we fail to deliver. After delivery, no refunds.</p></details><details><summary>Ownership</summary><p>Once paid in full, you own the final design. We may show it in our portfolio unless you ask us not to.</p></details><details><summary>Privacy</summary><p>We collect only what we need to deliver your order. When you submit the brief, the details open in WhatsApp so we can respond. We do not sell your data, and you may contact us to access, correct or delete it. This short policy should be reviewed by a Nigerian lawyer before launch.</p></details><p class="lawyer-note">These policies are a draft and should be reviewed by a Nigerian lawyer before launch.</p></div></section>
   </main>
 
   <footer id="contact" class="site-footer"><div class="wrap footer-grid"><div><a class="logo" href="#top">CREOVATE <span>—</span><br>DesignHub</a><p>Premium design for businesses that want to look the part.</p></div><div><h2>Contact</h2><p>WhatsApp / phone: <a href="https://wa.me/2348084002972">08084002972</a><br>Email: <a href="mailto:olanitealabij2023@gmail.com">olanitealabij2023@gmail.com</a></p><p><a href="https://x.com/creovate123" target="_blank" rel="noopener noreferrer">@creovate123</a> · <a href="https://instagram.com/creovatehq" target="_blank" rel="noopener noreferrer">@creovatehq</a><br>Facebook: Olanite Abdul Ghonny · YouTube: CREOVATE Digital Space</p><p><a href="https://drive.google.com/drive/folders/1Lfp6BQux8iWElEoBP7RST6SMnOsolIB3?usp=drive_link" target="_blank" rel="noopener noreferrer">Portfolio</a> · <a href="#policies">Terms &amp; Privacy</a></p></div></div><div class="wrap footer-bottom">© CREOVATE - DesignHub <span>No physical location is displayed.</span></div></footer>
