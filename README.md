@@ -4,7 +4,7 @@ This is the free, deployable public-site phase. It contains the marketing page, 
 
 ## Before publishing
 
-Replace every `https://YOUR-SITE.pages.dev/` value in `index.html`, `robots.txt`, and `sitemap.xml` with the final public address chosen in Cloudflare Pages. The address must be the exact URL, including `https://` and the trailing slash where shown.
+The current public address is `https://princeafk12.github.io/creovate-designhub/`. If the site later moves to Cloudflare Pages or a custom domain, update the canonical URL, `robots.txt`, and `sitemap.xml` together.
 
 ## What is intentionally not included yet
 

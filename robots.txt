@@ -1,5 +1,4 @@
 User-agent: *
 Allow: /
 
-# Replace YOUR-SITE with the final Cloudflare Pages or GitHub Pages address.
-Sitemap: https://YOUR-SITE.pages.dev/sitemap.xml
+Sitemap: https://princeafk12.github.io/creovate-designhub/sitemap.xml
