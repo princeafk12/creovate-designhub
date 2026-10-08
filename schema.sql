@@ -1,0 +1,95 @@
+-- Run this once in Supabase SQL Editor for the CREOVATE project.
+create extension if not exists pgcrypto;
+
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text,
+  role text not null default 'user' check (role in ('user', 'admin')),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.site_settings (
+  id integer primary key default 1 check (id = 1),
+  launch_active boolean not null default true,
+  launch_spots_total integer not null default 15 check (launch_spots_total >= 0),
+  launch_spots_remaining integer not null default 15 check (launch_spots_remaining >= 0),
+  discount_percent integer not null default 30 check (discount_percent between 0 and 100),
+  rush_percent integer not null default 30 check (rush_percent between 0 and 100),
+  offer_message text not null default '30% off every design service for the first 15 bookings after launch.',
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.services (
+  slug text primary key,
+  name text not null,
+  launch_price integer not null check (launch_price >= 0),
+  standard_price integer not null check (standard_price >= 0),
+  rush_enabled boolean not null default false,
+  rush_percent integer not null default 30 check (rush_percent between 0 and 100),
+  delivery_time text not null default '',
+  description text not null default '',
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.orders (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  service_slug text not null references public.services(slug),
+  service_name text not null,
+  price integer not null check (price >= 0),
+  rush boolean not null default false,
+  brief jsonb not null default '{}'::jsonb,
+  status text not null default 'new' check (status in ('new', 'in_progress', 'complete', 'cancelled')),
+  created_at timestamptz not null default now()
+);
+
+create or replace function public.is_admin(uid uuid default auth.uid())
+returns boolean language sql stable security definer set search_path = public
+as $$ select exists (select 1 from public.profiles where id = uid and role = 'admin'); $$;
+
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer set search_path = public
+as $$ begin
+  insert into public.profiles (id, email) values (new.id, new.email)
+  on conflict (id) do update set email = excluded.email;
+  return new;
+end; $$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created after insert on auth.users
+for each row execute procedure public.handle_new_user();
+
+insert into public.site_settings (id) values (1) on conflict (id) do nothing;
+insert into public.services (slug, name, launch_price, standard_price, rush_enabled, delivery_time, description) values
+  ('logo', 'Logo design', 5600, 8000, false, '24 hours', 'One clean, custom logo from your brief.'),
+  ('flyer', 'Flyer / poster', 3500, 5000, false, '24 hours', 'A single-page promo for an event, sale or announcement.'),
+  ('social-post', 'Social media post', 2800, 4000, false, '24 hours', 'One designed graphic sized for your platform.'),
+  ('social-pack', 'Social media pack', 24500, 35000, true, '5 days', 'Ten matching posts in one consistent style.'),
+  ('business-card', 'Business card', 3500, 5000, false, '24 hours', 'A professional card to print or share digitally.'),
+  ('brand-kit', 'Full brand kit', 42000, 60000, true, '10 days', 'A complete visual identity for your business.')
+on conflict (slug) do update set name = excluded.name;
+
+alter table public.profiles enable row level security;
+alter table public.site_settings enable row level security;
+alter table public.services enable row level security;
+alter table public.orders enable row level security;
+
+drop policy if exists profiles_select_own_or_admin on public.profiles;
+create policy profiles_select_own_or_admin on public.profiles for select to authenticated using (id = auth.uid() or public.is_admin());
+drop policy if exists settings_public_read on public.site_settings;
+create policy settings_public_read on public.site_settings for select using (true);
+drop policy if exists settings_admin_write on public.site_settings;
+create policy settings_admin_write on public.site_settings for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists services_public_read on public.services;
+create policy services_public_read on public.services for select using (true);
+drop policy if exists services_admin_write on public.services;
+create policy services_admin_write on public.services for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists orders_insert_own on public.orders;
+create policy orders_insert_own on public.orders for insert to authenticated with check (user_id = auth.uid());
+drop policy if exists orders_select_own_or_admin on public.orders;
+create policy orders_select_own_or_admin on public.orders for select to authenticated using (user_id = auth.uid() or public.is_admin());
+drop policy if exists orders_admin_update on public.orders;
+create policy orders_admin_update on public.orders for update to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- After signing up on the website, run this once with your own email to become admin:
+-- update public.profiles set role = 'admin' where email = 'YOUR-EMAIL-HERE';

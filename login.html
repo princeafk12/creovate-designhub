@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Client login | CREOVATE DesignHub</title><link rel="stylesheet" href="styles.css">
+</head>
+<body class="auth-page">
+  <main class="auth-shell wrap">
+    <a class="logo auth-logo" href="index.html">CREOVATE <span>—</span><br>DesignHub</a>
+    <div class="auth-grid">
+      <section class="auth-card"><p class="eyebrow eyebrow-dark">Client area</p><h1>Welcome back.</h1><p>Log in to view your saved design briefs and orders.</p>
+        <form id="login-form" class="auth-form"><label>Email address<input name="email" type="email" autocomplete="email" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button class="button button-dark" type="submit">Log in</button></form>
+        <p class="auth-links"><a href="#reset">Forgot your password?</a> · <a href="admin-login.html">Admin login</a></p>
+      </section>
+      <section class="auth-card" id="signup"><p class="eyebrow eyebrow-dark">New client</p><h2>Create an account.</h2><p>Save your briefs and follow up on orders in one place.</p>
+        <form id="signup-form" class="auth-form"><label>Your name<input name="name" type="text" autocomplete="name" required></label><label>Email address<input name="email" type="email" autocomplete="email" required></label><label>Password<input name="password" type="password" autocomplete="new-password" minlength="8" required></label><label>Confirm password<input name="confirm_password" type="password" autocomplete="new-password" minlength="8" required></label><button class="button button-lime" type="submit">Create account</button></form>
+      </section>
+    </div>
+    <section class="auth-card reset-card" id="reset"><h2>Reset your password</h2><form id="reset-request-form" class="auth-form"><label>Email address<input name="email" type="email" required></label><button class="button button-outline-dark" type="submit">Send reset link</button></form></section>
+    <p data-auth-message class="form-status" role="status" aria-live="polite"></p><p><a href="index.html">← Back to the website</a></p>
+  </main>
+  <script src="supabase-config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="auth.js"></script>
+</body>
+</html>
