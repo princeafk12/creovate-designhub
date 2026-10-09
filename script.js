@@ -53,6 +53,7 @@
   const rushOption = document.querySelector('#rush-option');
   const status = document.querySelector('#brief-status');
   const formatNaira = value => `₦${Number(value).toLocaleString('en-NG')}`;
+  const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[character]));
   const fallbackSettings = {launch_active: true, launch_spots_total: 15, launch_spots_remaining: 15, discount_percent: 30, rush_percent: 30};
   let settings = {...fallbackSettings};
   const slugFor = name => ({'Logo design':'logo','Flyer / poster':'flyer','Social media post':'social-post','Social media pack':'social-pack','Business card':'business-card','Full brand kit':'brand-kit'}[name] || name.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
@@ -91,6 +92,10 @@
       card.dataset.serviceSlug = item.slug;
       const priceElement = card.querySelector('.price');
       if (priceElement) priceElement.innerHTML = `${formatNaira(activeLaunch() ? item.launch_price : item.standard_price)} <del>${formatNaira(activeLaunch() ? item.standard_price : item.launch_price)}</del>`;
+      const deliveryElement = card.querySelector('.meta');
+      if (deliveryElement && item.delivery_time) deliveryElement.textContent = `Delivery: ${item.delivery_time}`;
+      const descriptionElement = card.querySelector('.service-description') || card.children[3];
+      if (descriptionElement && item.description) descriptionElement.textContent = item.description;
       const meta = card.querySelector('.meta');
       if (meta && item.delivery_time) meta.textContent = `Delivery: ${item.delivery_time}`;
     });
@@ -140,7 +145,7 @@
   form.addEventListener('submit', async event => {
     event.preventDefault();
     const session = await window.CREOVATE_MEMBER.getSession();
-    if (!session) { window.location.href = 'login.html?next=index.html%23brief'; return; }
+    if (!session) { window.location.href = 'signup.html?next=index.html%23brief'; return; }
     const data = new FormData(form);
     const selected = selectedService();
     if (!selected) return;
@@ -158,14 +163,20 @@
       '', `Words and details to include:\n${data.get('copy') || 'Not specified'}`, '', `Reference link(s): ${data.get('references') || 'None'}`
     ];
     const whatsappUrl = `https://wa.me/2348084002972?text=${encodeURIComponent(lines.join('\n'))}`;
-    status.textContent = 'Opening WhatsApp with your completed brief…';
+    status.textContent = 'Opening WhatsApp and preparing secure checkout…';
     window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
     try {
-      const db = window.creovateSupabase;
-      if (db) {
-        await db.from('orders').insert({user_id: session.user.id, service_slug: selected.slug, service_name: selected.name, price: currentPrice, rush: rushSelected, brief: Object.fromEntries(data.entries())});
-      }
-    } catch (error) { /* WhatsApp delivery remains available even when saving is unavailable. */ }
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: {'content-type': 'application/json', authorization: `Bearer ${session.access_token}`},
+        body: JSON.stringify({service_slug: selected.slug, rush: rushSelected, brief: Object.fromEntries(data.entries())})
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || !body.checkout_url) throw new Error(body.error || 'Secure checkout is not configured yet.');
+      status.innerHTML = `Your brief was saved. <a href="${escape(body.checkout_url)}" target="_blank" rel="noopener noreferrer">Continue to Flutterwave payment</a>.`;
+    } catch (error) {
+      status.textContent = `WhatsApp opened. Secure payment is not ready yet: ${error.message}`;
+    }
   });
   window.CREOVATE_MEMBER.setup(form, gate, status);
   loadPublicSettings();
@@ -180,7 +191,31 @@
   const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
   }[character]));
-  const bullets = values => values.map(value => `<li>${escape(value)}</li>`).join('');
+  const label = value => String(value || '').replace(/[_-]+/g, ' ').replace(/\b\w/g, character => character.toUpperCase());
+  const lines = value => {
+    if (value === null || value === undefined || value === '') return [];
+    if (Array.isArray(value)) return value.flatMap(item => lines(item));
+    if (typeof value === 'object') return Object.entries(value).flatMap(([key, item]) => {
+      const nested = lines(item);
+      return nested.length ? nested.map(line => `${label(key)}: ${line}`) : [];
+    });
+    return [String(value)];
+  };
+  const bullets = values => lines(values).map(value => `<li>${escape(value)}</li>`).join('');
+  const section = (title, value, className = '') => {
+    const items = lines(value);
+    if (!items.length) return '';
+    return `<section class="validator-report-section ${className}"><h4>${escape(title)}</h4>${items.length === 1 ? `<p>${escape(items[0])}</p>` : `<ul>${bullets(items)}</ul>`}</section>`;
+  };
+  const renderAnalysis = body => {
+    const analysis = body.analysis;
+    if (!analysis || typeof analysis !== 'object') return `<div class="validator-report-text">${escape(body.report || 'No report text was returned.').replace(/\n/g, '<br>')}</div>`;
+    const viability = analysis.overall_viability || {};
+    const score = Number(viability.score ?? analysis.score);
+    const scores = Array.isArray(analysis.scores) ? analysis.scores : [];
+    const scoreCards = scores.map(item => `<div class="validator-score-card"><strong>${escape(item.name || item.dimension || 'Score')}</strong><span>${escape(item.score ?? '—')}/100</span><small>${escape(item.reason || item.explanation || '')}</small></div>`).join('');
+    return `<div class="validator-report-dashboard"><div class="validator-summary-card"><div><span class="validator-report-label">Overall viability</span><strong class="validator-score">${Number.isFinite(score) ? escape(score) : '—'}<small>/100</small></strong></div><div><strong>${escape(viability.label || analysis.recommendation || 'Initial assessment')}</strong><p>${escape(viability.confidence || 'Use this as an evidence-led starting point, not a guarantee.')}</p></div></div>${scoreCards ? `<div class="validator-score-grid">${scoreCards}</div>` : ''}${section('Business summary', analysis.business_summary)}${section('Market demand', analysis.market_demand)}${section('Target audience', analysis.target_audience)}${section('Competition and differentiation', analysis.competition)}${section('Revenue model', analysis.revenue_model)}${section('Financial projections and assumptions', analysis.financial_projections)}${section('Setup requirements', analysis.setup_requirements)}${section('SWOT analysis', analysis.swot)}${section('Risk assessment', analysis.risk_assessment)}${section('Validation experiments', analysis.validation_experiments)}${section('Marketing strategy', analysis.marketing_strategy)}${section('30-day action plan', analysis.action_plan_30_days)}${section('First-customer strategy', analysis.first_customer_strategy)}${section('Unknowns and evidence gaps', analysis.unknowns)}${section('Final recommendation', analysis.recommendation, 'validator-recommendation')}</div>`;
+  };
 
   form.addEventListener('submit', event => {
     event.preventDefault();
@@ -189,55 +224,31 @@
 
   async function evaluate(currentForm, output) {
     const session = await window.CREOVATE_MEMBER.getSession();
-    if (!session) { window.location.href = 'login.html?next=index.html%23validator'; return; }
+    if (!session) { window.location.href = 'signup.html?next=index.html%23validator'; return; }
     const data = new FormData(currentForm);
     const idea = String(data.get('idea') || '').trim();
     const audience = String(data.get('audience') || '').trim();
     const location = String(data.get('location') || '').trim();
+    const stage = String(data.get('stage') || '').trim();
     const goal = String(data.get('goal') || '').trim();
     const budget = String(data.get('budget') || '').trim();
-    let score = 25;
-    const strengths = [];
-    const gaps = [];
-    const nextSteps = [];
-
-    if (idea.length >= 40) { score += 20; strengths.push('You described the idea with useful detail.'); }
-    else if (idea.length >= 20) { score += 10; gaps.push('Make the idea more specific: what exactly will you sell or deliver?'); }
-    else gaps.push('Add a clearer description of the product or service.');
-    if (audience.length >= 10) { score += 20; strengths.push('You named a target customer.'); }
-    else gaps.push('Define the first customer group you want to serve.');
-    if (location) { score += 10; strengths.push('You identified where the business will operate.'); }
-    else gaps.push('Choose a first location or explain that it will operate online.');
-    if (goal) { score += 10; strengths.push('You selected a clear business goal.'); }
-    else gaps.push('Choose the main result you want from the idea.');
-    if (budget && budget !== 'unknown') { score += 10; strengths.push('You have started thinking about launch resources.'); }
-    else gaps.push('Set a rough starting budget before committing to launch costs.');
-    if (/\b(sell|service|product|delivery|app|shop|design|food)\b/i.test(idea)) score += 5;
-    score = Math.min(score, 100);
-
-    if (!gaps.length) gaps.push('Keep validating the idea with real potential customers.');
-    nextSteps.push('Speak to at least five potential customers and ask what they currently use instead.');
-    nextSteps.push('Write down your first offer, price range and how someone will place an order.');
-    if (budget === 'unknown') nextSteps.push('Estimate the smallest realistic launch budget and monthly running cost.');
-    const verdict = score >= 75 ? 'Strong starting point' : score >= 50 ? 'Promising but needs clarity' : 'Needs more definition';
-
-    let saved = true;
+    const skills = String(data.get('skills') || '').trim();
+    const resources = String(data.get('resources') || '').trim();
+    output.hidden = false;
+    output.innerHTML = '<p>Researching current sources and preparing your report…</p>';
     try {
-      const {error} = await window.CREOVATE_MEMBER.client().from('validator_checks').insert({
-        user_id: session.user.id,
-        idea,
-        audience,
-        location,
-        goal,
-        budget,
-        score,
-        verdict,
-        result: {strengths, gaps, next_steps: nextSteps}
+      const response = await fetch('/api/validator', {
+        method: 'POST',
+        headers: {'content-type': 'application/json', authorization: `Bearer ${session.access_token}`},
+        body: JSON.stringify({idea, audience, location, stage, goal, budget, skills, resources})
       });
-      if (error) saved = false;
-    } catch (error) { saved = false; }
-    result.hidden = false;
-    result.innerHTML = `<div class="validator-score">${score}/100</div><h3>${escape(verdict)}</h3><p>This is a free first-pass estimate based only on your answers. It is not market research, legal advice, financial advice or a guarantee of success.</p><h4>What looks good</h4><ul>${bullets(strengths.length ? strengths : ['You have started turning an idea into a plan.'])}</ul><h4>What to improve</h4><ul>${bullets(gaps)}</ul><h4>Useful next steps</h4><ul>${bullets(nextSteps)}</ul><p class="validator-save-status">${saved ? 'Saved to your customer account.' : 'Result shown, but it could not be saved. Please try again after the database migration is complete.'}</p>`;
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'The live validator is unavailable.');
+      const sources = (body.sources || []).map(source => `<li><a href="${escape(source.url)}" target="_blank" rel="noopener noreferrer">${escape(source.title || source.url)}</a><small>${escape(source.url)} · accessed ${escape(source.accessed_at || body.generated_at || '')}</small></li>`).join('');
+      result.innerHTML = `<h3>Source-backed validation report</h3>${renderAnalysis(body)}<div class="validator-sources"><h4>Live sources and dates</h4><ol>${sources || '<li>No source list was returned.</li>'}</ol></div><p class="validator-save-status">Saved to your customer account. Live evidence, estimates, recommendations and unknowns are kept distinct. This is guidance, not legal, tax, investment, or professional advice.</p>`;
+    } catch (error) {
+      result.innerHTML = `<p class="form-status is-error">${escape(error.message)}</p>`;
+    }
     result.scrollIntoView({behavior: 'smooth', block: 'nearest'});
   }
   window.CREOVATE_MEMBER.setup(form, gate, result);

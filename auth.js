@@ -1,4 +1,5 @@
-(() => {
+(async () => {
+  const OWNER_EMAIL = 'olanitealabij2023@gmail.com';
   window.CREOVATE_SUPABASE_URL = window.CREOVATE_SUPABASE_URL || 'https://makiwckhhycpjhfqtail.supabase.co';
   window.CREOVATE_SUPABASE_KEY = window.CREOVATE_SUPABASE_KEY || 'sb_publishable_hh6nQhgj140KaE0_IjykQw_Wm6oJj3c';
   const publicBase = () => {
@@ -31,9 +32,13 @@
     if (error) throw error;
     return data;
   };
-  const requireUser = async () => {
+  const requireUser = async (next = '') => {
     const { data } = await client().auth.getSession();
-    if (!data.session) { window.location.href = 'login.html'; return null; }
+    if (!data.session) {
+      const suffix = next ? `?next=${encodeURIComponent(next)}` : '';
+      window.location.href = `signup.html${suffix}`;
+      return null;
+    }
     return data.session.user;
   };
   const verifiedTotpFactors = async () => {
@@ -59,7 +64,7 @@
     const user = await requireUser();
     if (!user) return null;
     const profile = await profileFor(user);
-    if (!profile || profile.role !== 'admin') {
+    if (!profile || profile.role !== 'admin' || String(user.email || '').toLowerCase() !== OWNER_EMAIL) {
       await client().auth.signOut();
       window.location.href = 'admin-login.html?error=admin';
       return null;
@@ -98,9 +103,23 @@
       const { data: result, error } = await client().auth.signUp({email: data.get('email'), password: data.get('password'), options: {data: {full_name: data.get('name')}, emailRedirectTo: publicUrl('login.html')}});
       if (error) throw error;
       if (result.session) window.location.href = requestedNext('account.html');
-      else message(status, 'Account created. Check your email to confirm your account, then log in.');
-    } catch (error) { message(status, error.message, true); }
+      else message(status, 'Account created. You can now log in.');
+    } catch (error) {
+      message(status, error.message, true);
+    }
   });
+
+  const resetToggle = document.querySelector('#reset-toggle');
+  const resetInline = document.querySelector('#reset-inline');
+  const resetCancel = document.querySelector('#reset-cancel');
+  const setResetOpen = open => {
+    if (!resetInline || !resetToggle) return;
+    resetInline.hidden = !open;
+    resetToggle.setAttribute('aria-expanded', String(open));
+    if (open) resetInline.querySelector('input')?.focus();
+  };
+  resetToggle?.addEventListener('click', () => setResetOpen(true));
+  resetCancel?.addEventListener('click', () => setResetOpen(false));
 
   const resetRequestForm = document.querySelector('#reset-request-form');
   if (resetRequestForm) resetRequestForm.addEventListener('submit', async event => {
@@ -125,23 +144,67 @@
       const {data: result, error} = await client().auth.signInWithPassword({email: data.get('email'), password: data.get('password')});
       if (error) throw error;
       const profile = await profileFor(result.user);
-      if (profile?.role !== 'admin') { await client().auth.signOut(); throw new Error('This account is not an administrator account.'); }
+      if (String(result.user?.email || '').toLowerCase() !== OWNER_EMAIL || profile?.role !== 'admin') {
+        await client().auth.signOut();
+        throw new Error('Only the CREOVATE owner account may use the administrator area.');
+      }
       if (await continueAdminMfa()) window.location.href = 'admin.html';
     } catch (error) { message(status, error.message, true); }
   });
 
   const updatePasswordForm = document.querySelector('#update-password-form');
-  if (updatePasswordForm) updatePasswordForm.addEventListener('submit', async event => {
-    event.preventDefault();
+  if (updatePasswordForm) {
     const status = document.querySelector('[data-auth-message]');
-    const data = new FormData(updatePasswordForm);
-    if (data.get('password') !== data.get('confirm_password')) { message(status, 'The passwords do not match.', true); return; }
-    try {
-      const {error} = await client().auth.updateUser({password: data.get('password')});
-      if (error) throw error;
-      message(status, 'Password updated. You can now use your new password.');
-    } catch (error) { message(status, error.message, true); }
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const hashError = hashParams.get('error_description') || hashParams.get('error');
+    if (hashError) {
+      updatePasswordForm.hidden = true;
+      message(status, 'This password-reset link is invalid or has expired. Request a new link from the login page.', true);
+    } else {
+      message(status, 'Preparing the secure password-reset session…');
+      let sessionReady = Boolean((await client().auth.getSession()).data.session);
+      if (!sessionReady) {
+        await new Promise(resolve => {
+          let finished = false;
+          let subscription;
+          const finish = () => {
+            if (finished) return;
+            finished = true;
+            subscription?.unsubscribe?.();
+            resolve();
+          };
+          const result = client().auth.onAuthStateChange(event => {
+            if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') finish();
+          });
+          subscription = result?.data?.subscription;
+          window.setTimeout(finish, 1800);
+        });
+        sessionReady = Boolean((await client().auth.getSession()).data.session);
+      }
+      if (sessionReady) message(status, 'Enter and confirm your new password.');
+      else {
+        updatePasswordForm.hidden = true;
+        message(status, 'This password-reset link did not open a valid recovery session. Request a new link from the login page and open it in the same browser.', true);
+      }
+    }
+    updatePasswordForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      const data = new FormData(updatePasswordForm);
+      if (data.get('password') !== data.get('confirm_password')) { message(status, 'The passwords do not match.', true); return; }
+      try {
+        const {error} = await client().auth.updateUser({password: data.get('password')});
+        if (error) throw error;
+        updatePasswordForm.hidden = true;
+        message(status, 'Password updated. You can now use your new password. Return to login to sign in.');
+      } catch (error) { message(status, error.message, true); }
+    });
+  }
+
+  document.querySelectorAll('[data-auth-switch]').forEach(link => {
+    const target = link.getAttribute('data-auth-switch');
+    const next = new URLSearchParams(window.location.search).get('next');
+    if (next && (target === 'login.html' || target === 'signup.html')) link.href = `${target}?next=${encodeURIComponent(next)}`;
   });
 
-  window.CREOVATE_AUTH = {client, profileFor, requireUser, requireAdmin, verifiedTotpFactors, continueAdminMfa, escapeHtml, message};
+  window.CREOVATE_AUTH = {client, profileFor, requireUser, requireAdmin, verifiedTotpFactors, continueAdminMfa, escapeHtml, message, OWNER_EMAIL};
 })();

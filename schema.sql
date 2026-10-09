@@ -34,14 +34,19 @@ create table if not exists public.services (
 create table if not exists public.orders (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
+  customer_email text,
   service_slug text not null references public.services(slug),
   service_name text not null,
   price integer not null check (price >= 0),
+  currency text not null default 'NGN' check (currency = upper(currency) and length(currency) = 3),
+  tx_ref text unique,
+  flutterwave_transaction_id text,
   rush boolean not null default false,
   brief jsonb not null default '{}'::jsonb,
   status text not null default 'new' check (status in ('new', 'in_progress', 'complete', 'cancelled')),
   payment_status text not null default 'pending' check (payment_status in ('pending', 'paid', 'failed', 'refunded')),
   paid_at timestamptz,
+  payment_verified_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -56,13 +61,30 @@ create table if not exists public.validator_checks (
   score integer not null check (score between 0 and 100),
   verdict text not null,
   result jsonb not null default '{}'::jsonb,
+  provider text,
+  search_count integer not null default 0 check (search_count >= 0),
+  estimated_cost_minor integer not null default 0 check (estimated_cost_minor >= 0),
   created_at timestamptz not null default now()
+);
+
+create table if not exists public.webhook_events (
+  id uuid primary key default gen_random_uuid(),
+  provider text not null,
+  event_key text not null unique,
+  payload jsonb not null,
+  received_at timestamptz not null default now(),
+  processed_at timestamptz
 );
 
 create or replace function public.is_admin(uid uuid default auth.uid())
 returns boolean language sql stable security definer set search_path = public
 as $$ select coalesce(auth.jwt()->>'aal','aal1') = 'aal2'
-  and exists (select 1 from public.profiles where id = uid and role = 'admin'); $$;
+  and exists (
+    select 1 from public.profiles
+    where id = uid
+      and role = 'admin'
+      and lower(coalesce(email, '')) = 'olanitealabij2023@gmail.com'
+  ); $$;
 
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public
@@ -137,7 +159,13 @@ begin
 
   new.service_name := selected_service.name;
   new.price := base_price;
+  new.currency := 'NGN';
   new.rush := coalesce(new.rush, false);
+  new.status := 'new';
+  new.payment_status := 'pending';
+  new.paid_at := null;
+  new.flutterwave_transaction_id := null;
+  new.payment_verified_at := null;
   return new;
 end;
 $$;
@@ -152,6 +180,7 @@ alter table public.site_settings enable row level security;
 alter table public.services enable row level security;
 alter table public.orders enable row level security;
 alter table public.validator_checks enable row level security;
+alter table public.webhook_events enable row level security;
 
 drop policy if exists profiles_select_own_or_admin on public.profiles;
 create policy profiles_select_own_or_admin on public.profiles for select to authenticated using (id = auth.uid() or public.is_admin());
@@ -163,14 +192,10 @@ drop policy if exists services_public_read on public.services;
 create policy services_public_read on public.services for select using (true);
 drop policy if exists services_admin_write on public.services;
 create policy services_admin_write on public.services for all to authenticated using (public.is_admin()) with check (public.is_admin());
-drop policy if exists orders_insert_own on public.orders;
-create policy orders_insert_own on public.orders for insert to authenticated with check (user_id = auth.uid());
 drop policy if exists orders_select_own_or_admin on public.orders;
 create policy orders_select_own_or_admin on public.orders for select to authenticated using (user_id = auth.uid() or public.is_admin());
 drop policy if exists orders_admin_update on public.orders;
 create policy orders_admin_update on public.orders for update to authenticated using (public.is_admin()) with check (public.is_admin());
-drop policy if exists validator_checks_insert_own on public.validator_checks;
-create policy validator_checks_insert_own on public.validator_checks for insert to authenticated with check (user_id = auth.uid());
 drop policy if exists validator_checks_select_own_or_admin on public.validator_checks;
 create policy validator_checks_select_own_or_admin on public.validator_checks for select to authenticated using (user_id = auth.uid() or public.is_admin());
 
@@ -178,9 +203,9 @@ create policy validator_checks_select_own_or_admin on public.validator_checks fo
 grant usage on schema public to anon, authenticated;
 grant select on public.site_settings, public.services to anon, authenticated;
 grant select on public.profiles to authenticated;
-grant insert, select on public.orders to authenticated;
+grant select on public.orders to authenticated;
 grant update on public.site_settings, public.services, public.orders to authenticated;
-grant insert, select on public.validator_checks to authenticated;
+grant select on public.validator_checks to authenticated;
 
--- After signing up on the website, run this once with your own email to become admin:
--- update public.profiles set role = 'admin' where email = 'YOUR-EMAIL-HERE';
+-- After signing up with the owner email, run this once to become admin:
+-- update public.profiles set role = 'admin' where lower(email) = 'olanitealabij2023@gmail.com';

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Payment status | CREOVATE DesignHub</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>html.auth-pending body{visibility:hidden}</style>
+  <script>document.documentElement.classList.add('auth-pending')</script>
+</head>
+<body class="auth-page">
+  <main class="auth-shell wrap">
+    <a class="logo auth-logo" href="index.html">CREOVATE <span>—</span><br>DesignHub</a>
+    <section class="auth-card">
+      <p class="eyebrow eyebrow-dark">Payment submitted</p>
+      <h1>We are checking your payment.</h1>
+      <p>Flutterwave confirmation is handled securely by the server. Your order will show as paid only after the transaction is re-verified.</p>
+      <p><a class="button button-dark" href="account.html">View my orders</a></p>
+      <p><a href="index.html">Return to CREOVATE</a></p>
+    </section>
+  </main>
+</body>
+<script src="supabase-config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
+<script>(async()=>{try{const user=await CREOVATE_AUTH.requireUser('payment-return.html');if(user)document.documentElement.classList.remove('auth-pending');}catch(error){window.location.href='signup.html?next=payment-return.html';}})();</script>
+</html>

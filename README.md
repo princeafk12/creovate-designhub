@@ -1,6 +1,6 @@
 # CREOVATE - DesignHub
 
-This is the free, deployable site. It contains the marketing page, service details, a client-side design-brief form that opens a completed WhatsApp message, portfolio links, policies, responsive styling, search-engine files, Supabase customer login, saved briefs, and an admin area for offer and service settings.
+This is the CREOVATE DesignHub site foundation. It contains the login-first customer experience, service details, WhatsApp brief handoff, server-side checkout/webhook/validator function routes, portfolio links, saved orders and reports, and an owner-only admin area for offer and service settings.
 
 ## Before publishing
 
@@ -8,9 +8,9 @@ The current public address is `https://princeafk12.github.io/creovate-designhub/
 
 ## Remaining setup
 
-Run `schema.sql` once in the Supabase SQL Editor. If the database already exists, run the MFA migration in `mfa-migration.sql` too. Then create the owner account through `login.html`, promote it with the commented SQL statement at the bottom of `schema.sql`, and enrol an authenticator app from `admin-login.html`. The site keeps WhatsApp as the order handoff; saved orders are available to signed-in customers and the admin.
+Run `schema.sql` once in the Supabase SQL Editor. If the database already exists, run `mfa-migration.sql` and `phase-3-4-migration.sql` too. Then create the owner account through `login.html`, promote only `olanitealabij2023@gmail.com` with the SQL comment at the bottom of the schema, and enrol an authenticator app from `admin-login.html`. The server function routes require the environment variables documented in `.dev.vars.example`.
 
-The homepage, services, portfolio and policies remain public for search engines. Customers must sign in before using the validator or sending a brief. Validator checks are saved to the customer's account and admin area. Orders are saved with a pending payment status; after checking the Flutterwave dashboard, the admin can mark a payment as confirmed. Automatic payment confirmation requires a secure Flutterwave webhook and server-side provider secrets; never place those secrets in frontend files.
+The default site route, service catalog, brief form, validator, account, and admin area require an authenticated customer session. The server checkout endpoint creates the order and Flutterwave payment link. The webhook re-verifies the transaction before marking it paid. The validator uses the server-side live-search provider and saves source-backed reports when its caps are configured. Never place server secrets in frontend files.
 
 ## Publish with Cloudflare Pages
 
@@ -20,3 +20,5 @@ The homepage, services, portfolio and policies remain public for search engines.
 4. Deploy and note the assigned `*.pages.dev` address.
 5. Replace the placeholder URL in the three files above, commit, and redeploy.
 6. Submit `/sitemap.xml` in Google Search Console and Bing Webmaster Tools.
+
+Cloudflare Pages Functions are discovered from the `functions/` folder. Configure the webhook URL as `/api/flutterwave/webhook` and keep the account in test mode until all acceptance tests pass.
