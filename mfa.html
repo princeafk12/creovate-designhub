@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Secure admin access | CREOVATE DesignHub</title><link rel="stylesheet" href="styles.css"></head>
+<body class="auth-page">
+  <main class="auth-shell wrap">
+    <a class="logo auth-logo" href="index.html">CREOVATE <span>—</span><br>DesignHub</a>
+    <section class="auth-card mfa-card">
+      <p class="eyebrow eyebrow-dark">Authenticator security</p>
+      <h1 id="mfa-title">Secure your admin account.</h1>
+      <p id="mfa-intro">Scan this QR code with Google Authenticator, Microsoft Authenticator, or another TOTP app. Then enter the six-digit code it gives you.</p>
+      <div id="mfa-enrollment" class="mfa-enrollment">
+        <img id="mfa-qr" class="mfa-qr" alt="Authenticator app setup QR code">
+        <p class="mfa-secret-label">If scanning does not work, enter this setup key manually:</p>
+        <code id="mfa-secret" class="mfa-secret"></code>
+      </div>
+      <form id="mfa-form" class="auth-form">
+        <label>Authenticator code<input id="mfa-code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
+        <button class="button button-dark" type="submit" id="mfa-submit">Enable authenticator</button>
+      </form>
+      <p id="mfa-status" class="form-status" role="status" aria-live="polite"></p>
+      <p><a href="admin-login.html">Return to admin login</a></p>
+    </section>
+  </main>
+  <script src="supabase-config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="auth.js"></script>
+  <script>
+    (() => {
+      const params = new URLSearchParams(location.search);
+      const mode = params.get('mode') === 'verify' ? 'verify' : 'enroll';
+      const next = params.get('next') === 'admin.html' ? 'admin.html' : 'admin.html';
+      const db = CREOVATE_AUTH.client();
+      const status = document.querySelector('#mfa-status');
+      const form = document.querySelector('#mfa-form');
+      const qr = document.querySelector('#mfa-qr');
+      const secret = document.querySelector('#mfa-secret');
+      const enrollment = document.querySelector('#mfa-enrollment');
+      const title = document.querySelector('#mfa-title');
+      const intro = document.querySelector('#mfa-intro');
+      const submit = document.querySelector('#mfa-submit');
+      let factorId = null;
+
+      const setStatus = (text, error = false) => CREOVATE_AUTH.message(status, text, error);
+      const verifiedFactors = async () => {
+        const {data, error} = await db.auth.mfa.listFactors();
+        if (error) throw error;
+        return (data?.totp || []).filter(factor => factor.status === 'verified');
+      };
+
+      const start = async () => {
+        const {data: sessionData} = await db.auth.getSession();
+        if (!sessionData.session) { location.href = 'admin-login.html'; return; }
+        const factors = await verifiedFactors();
+        if (mode === 'verify' || factors.length) {
+          if (!factors.length) { location.href = 'mfa.html?mode=enroll&next=admin.html'; return; }
+          factorId = factors[0].id;
+          title.textContent = 'Enter your authenticator code.';
+          intro.textContent = 'Open your authenticator app and enter the current six-digit code to continue to the admin dashboard.';
+          enrollment.hidden = true;
+          submit.textContent = 'Verify and continue';
+          setStatus('Authenticator verification is required for admin access.');
+          return;
+        }
+        const {data, error} = await db.auth.mfa.enroll({factorType: 'totp', friendlyName: 'CREOVATE admin authenticator'});
+        if (error) throw error;
+        factorId = data.id;
+        const qrCode = data.totp?.qr_code || '';
+        qr.src = qrCode.startsWith('data:') ? qrCode : `data:image/svg+xml;utf8,${encodeURIComponent(qrCode)}`;
+        secret.textContent = data.totp?.secret || 'Use the QR code above.';
+        setStatus('Scan the QR code, then enter the six-digit code from your app.');
+      };
+
+      form.addEventListener('submit', async event => {
+        event.preventDefault();
+        const code = new FormData(form).get('code').toString().replace(/\D/g, '');
+        if (!/^\d{6}$/.test(code) || !factorId) { setStatus('Enter the six-digit authenticator code.', true); return; }
+        submit.disabled = true;
+        setStatus('Checking your authenticator code…');
+        try {
+          const {data: challenge, error: challengeError} = await db.auth.mfa.challenge({factorId});
+          if (challengeError) throw challengeError;
+          const {error} = await db.auth.mfa.verify({factorId, challengeId: challenge.id, code});
+          if (error) throw error;
+          await db.auth.refreshSession();
+          setStatus('Verified. Opening the admin dashboard…');
+          location.href = next;
+        } catch (error) {
+          submit.disabled = false;
+          setStatus(error.message || 'The authenticator code could not be verified.', true);
+        }
+      });
+
+      start().catch(error => setStatus(error.message || 'MFA setup could not be started.', true));
+    })();
+  </script>
+</body>
+</html>

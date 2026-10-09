@@ -45,7 +45,8 @@ create table if not exists public.orders (
 
 create or replace function public.is_admin(uid uuid default auth.uid())
 returns boolean language sql stable security definer set search_path = public
-as $$ select exists (select 1 from public.profiles where id = uid and role = 'admin'); $$;
+as $$ select coalesce(auth.jwt()->>'aal','aal1') = 'aal2'
+  and exists (select 1 from public.profiles where id = uid and role = 'admin'); $$;
 
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public
@@ -67,7 +68,68 @@ insert into public.services (slug, name, launch_price, standard_price, rush_enab
   ('social-pack', 'Social media pack', 24500, 35000, true, '5 days', 'Ten matching posts in one consistent style.'),
   ('business-card', 'Business card', 3500, 5000, false, '24 hours', 'A professional card to print or share digitally.'),
   ('brand-kit', 'Full brand kit', 42000, 60000, true, '10 days', 'A complete visual identity for your business.')
-on conflict (slug) do update set name = excluded.name;
+on conflict (slug) do update set
+  name = excluded.name,
+  launch_price = excluded.launch_price,
+  standard_price = excluded.standard_price,
+  rush_enabled = excluded.rush_enabled,
+  rush_percent = excluded.rush_percent,
+  delivery_time = excluded.delivery_time,
+  description = excluded.description,
+  updated_at = now();
+
+-- Keep the first-15 offer authoritative when a signed-in customer saves an order.
+-- The row lock prevents two simultaneous orders from consuming the same spot.
+create or replace function public.reserve_launch_spot()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  selected_service public.services%rowtype;
+  current_settings public.site_settings%rowtype;
+  base_price integer;
+begin
+  select * into selected_service
+  from public.services
+  where slug = new.service_slug;
+
+  if selected_service.slug is null then
+    raise exception 'Unknown service: %', new.service_slug;
+  end if;
+
+  select * into current_settings
+  from public.site_settings
+  where id = 1
+  for update;
+
+  if current_settings.launch_active and current_settings.launch_spots_remaining > 0 then
+    base_price := selected_service.launch_price;
+    update public.site_settings
+    set launch_spots_remaining = greatest(launch_spots_remaining - 1, 0),
+        launch_active = case when launch_spots_remaining <= 1 then false else launch_active end,
+        updated_at = now()
+    where id = 1;
+  else
+    base_price := selected_service.standard_price;
+  end if;
+
+  if coalesce(new.rush, false) and selected_service.rush_enabled then
+    base_price := round(base_price * (1 + selected_service.rush_percent / 100.0));
+  end if;
+
+  new.service_name := selected_service.name;
+  new.price := base_price;
+  new.rush := coalesce(new.rush, false);
+  return new;
+end;
+$$;
+
+drop trigger if exists reserve_launch_spot_before_order on public.orders;
+create trigger reserve_launch_spot_before_order
+before insert on public.orders
+for each row execute procedure public.reserve_launch_spot();
 
 alter table public.profiles enable row level security;
 alter table public.site_settings enable row level security;
@@ -90,6 +152,13 @@ drop policy if exists orders_select_own_or_admin on public.orders;
 create policy orders_select_own_or_admin on public.orders for select to authenticated using (user_id = auth.uid() or public.is_admin());
 drop policy if exists orders_admin_update on public.orders;
 create policy orders_admin_update on public.orders for update to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- Allow the Supabase Data API roles to reach the tables; RLS still controls each row.
+grant usage on schema public to anon, authenticated;
+grant select on public.site_settings, public.services to anon, authenticated;
+grant select on public.profiles to authenticated;
+grant insert, select on public.orders to authenticated;
+grant update on public.site_settings, public.services, public.orders to authenticated;
 
 -- After signing up on the website, run this once with your own email to become admin:
 -- update public.profiles set role = 'admin' where email = 'YOUR-EMAIL-HERE';

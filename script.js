@@ -143,3 +143,52 @@
   });
   loadPublicSettings();
 })();
+
+(() => {
+  const form = document.querySelector('#validator-form');
+  const result = document.querySelector('#validator-result');
+  if (!form || !result) return;
+
+  const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+  }[character]));
+  const bullets = values => values.map(value => `<li>${escape(value)}</li>`).join('');
+
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    const data = new FormData(form);
+    const idea = String(data.get('idea') || '').trim();
+    const audience = String(data.get('audience') || '').trim();
+    const location = String(data.get('location') || '').trim();
+    const goal = String(data.get('goal') || '').trim();
+    const budget = String(data.get('budget') || '').trim();
+    let score = 25;
+    const strengths = [];
+    const gaps = [];
+    const nextSteps = [];
+
+    if (idea.length >= 40) { score += 20; strengths.push('You described the idea with useful detail.'); }
+    else if (idea.length >= 20) { score += 10; gaps.push('Make the idea more specific: what exactly will you sell or deliver?'); }
+    else gaps.push('Add a clearer description of the product or service.');
+    if (audience.length >= 10) { score += 20; strengths.push('You named a target customer.'); }
+    else gaps.push('Define the first customer group you want to serve.');
+    if (location) { score += 10; strengths.push('You identified where the business will operate.'); }
+    else gaps.push('Choose a first location or explain that it will operate online.');
+    if (goal) { score += 10; strengths.push('You selected a clear business goal.'); }
+    else gaps.push('Choose the main result you want from the idea.');
+    if (budget && budget !== 'unknown') { score += 10; strengths.push('You have started thinking about launch resources.'); }
+    else gaps.push('Set a rough starting budget before committing to launch costs.');
+    if (/\b(sell|service|product|delivery|app|shop|design|food)\b/i.test(idea)) score += 5;
+    score = Math.min(score, 100);
+
+    if (!gaps.length) gaps.push('Keep validating the idea with real potential customers.');
+    nextSteps.push('Speak to at least five potential customers and ask what they currently use instead.');
+    nextSteps.push('Write down your first offer, price range and how someone will place an order.');
+    if (budget === 'unknown') nextSteps.push('Estimate the smallest realistic launch budget and monthly running cost.');
+    const verdict = score >= 75 ? 'Strong starting point' : score >= 50 ? 'Promising but needs clarity' : 'Needs more definition';
+
+    result.hidden = false;
+    result.innerHTML = `<div class="validator-score">${score}/100</div><h3>${escape(verdict)}</h3><p>This is a free first-pass estimate based only on your answers. It is not market research, legal advice, financial advice or a guarantee of success.</p><h4>What looks good</h4><ul>${bullets(strengths.length ? strengths : ['You have started turning an idea into a plan.'])}</ul><h4>What to improve</h4><ul>${bullets(gaps)}</ul><h4>Useful next steps</h4><ul>${bullets(nextSteps)}</ul>`;
+    result.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+  });
+})();

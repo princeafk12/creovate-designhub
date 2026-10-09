@@ -24,6 +24,25 @@
     if (!data.session) { window.location.href = 'login.html'; return null; }
     return data.session.user;
   };
+  const verifiedTotpFactors = async () => {
+    const { data, error } = await client().auth.mfa.listFactors();
+    if (error) throw error;
+    return (data?.totp || []).filter(factor => factor.status === 'verified');
+  };
+  const continueAdminMfa = async () => {
+    const factors = await verifiedTotpFactors();
+    if (!factors.length) {
+      window.location.href = 'mfa.html?mode=enroll&next=admin.html';
+      return false;
+    }
+    const { data, error } = await client().auth.mfa.getAuthenticatorAssuranceLevel();
+    if (error) throw error;
+    if (data?.currentLevel !== 'aal2') {
+      window.location.href = 'mfa.html?mode=verify&next=admin.html';
+      return false;
+    }
+    return true;
+  };
   const requireAdmin = async () => {
     const user = await requireUser();
     if (!user) return null;
@@ -33,6 +52,7 @@
       window.location.href = 'admin-login.html?error=admin';
       return null;
     }
+    if (!(await continueAdminMfa())) return null;
     return {user, profile};
   };
 
@@ -94,7 +114,7 @@
       if (error) throw error;
       const profile = await profileFor(result.user);
       if (profile?.role !== 'admin') { await client().auth.signOut(); throw new Error('This account is not an administrator account.'); }
-      window.location.href = 'admin.html';
+      if (await continueAdminMfa()) window.location.href = 'admin.html';
     } catch (error) { message(status, error.message, true); }
   });
 
@@ -111,5 +131,5 @@
     } catch (error) { message(status, error.message, true); }
   });
 
-  window.CREOVATE_AUTH = {client, profileFor, requireUser, requireAdmin, escapeHtml, message};
+  window.CREOVATE_AUTH = {client, profileFor, requireUser, requireAdmin, verifiedTotpFactors, continueAdminMfa, escapeHtml, message};
 })();
