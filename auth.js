@@ -1,6 +1,13 @@
 (() => {
   window.CREOVATE_SUPABASE_URL = window.CREOVATE_SUPABASE_URL || 'https://makiwckhhycpjhfqtail.supabase.co';
   window.CREOVATE_SUPABASE_KEY = window.CREOVATE_SUPABASE_KEY || 'sb_publishable_hh6nQhgj140KaE0_IjykQw_Wm6oJj3c';
+  const publicBase = () => {
+    const marker = '/creovate-designhub/';
+    const path = window.location.pathname;
+    const markerIndex = path.indexOf(marker);
+    return markerIndex >= 0 ? `${window.location.origin}${path.slice(0, markerIndex + marker.length)}` : `${window.location.origin}/`;
+  };
+  const publicUrl = file => new URL(file, publicBase()).toString();
   const configReady = () => Boolean(window.supabase && window.CREOVATE_SUPABASE_URL && window.CREOVATE_SUPABASE_KEY);
   const client = () => {
     if (!configReady()) throw new Error('Authentication is not configured yet.');
@@ -88,7 +95,7 @@
     if (data.get('password') !== data.get('confirm_password')) { message(status, 'The passwords do not match.', true); return; }
     message(status, 'Creating your account…');
     try {
-      const { data: result, error } = await client().auth.signUp({email: data.get('email'), password: data.get('password'), options: {data: {full_name: data.get('name')}}});
+      const { data: result, error } = await client().auth.signUp({email: data.get('email'), password: data.get('password'), options: {data: {full_name: data.get('name')}, emailRedirectTo: publicUrl('login.html')}});
       if (error) throw error;
       if (result.session) window.location.href = requestedNext('account.html');
       else message(status, 'Account created. Check your email to confirm your account, then log in.');
@@ -102,7 +109,7 @@
     const email = new FormData(resetRequestForm).get('email');
     message(status, 'Sending the reset link…');
     try {
-      const {error} = await client().auth.resetPasswordForEmail(email, {redirectTo: `${window.location.origin}/reset.html`});
+      const {error} = await client().auth.resetPasswordForEmail(email, {redirectTo: publicUrl('reset.html')});
       if (error) throw error;
       message(status, 'If an account exists for that email, a password-reset link has been sent.');
     } catch (error) { message(status, error.message, true); }
