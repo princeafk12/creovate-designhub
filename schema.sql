@@ -40,6 +40,22 @@ create table if not exists public.orders (
   rush boolean not null default false,
   brief jsonb not null default '{}'::jsonb,
   status text not null default 'new' check (status in ('new', 'in_progress', 'complete', 'cancelled')),
+  payment_status text not null default 'pending' check (payment_status in ('pending', 'paid', 'failed', 'refunded')),
+  paid_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.validator_checks (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  idea text not null,
+  audience text not null,
+  location text not null,
+  goal text not null,
+  budget text not null,
+  score integer not null check (score between 0 and 100),
+  verdict text not null,
+  result jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
 
@@ -135,6 +151,7 @@ alter table public.profiles enable row level security;
 alter table public.site_settings enable row level security;
 alter table public.services enable row level security;
 alter table public.orders enable row level security;
+alter table public.validator_checks enable row level security;
 
 drop policy if exists profiles_select_own_or_admin on public.profiles;
 create policy profiles_select_own_or_admin on public.profiles for select to authenticated using (id = auth.uid() or public.is_admin());
@@ -152,6 +169,10 @@ drop policy if exists orders_select_own_or_admin on public.orders;
 create policy orders_select_own_or_admin on public.orders for select to authenticated using (user_id = auth.uid() or public.is_admin());
 drop policy if exists orders_admin_update on public.orders;
 create policy orders_admin_update on public.orders for update to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists validator_checks_insert_own on public.validator_checks;
+create policy validator_checks_insert_own on public.validator_checks for insert to authenticated with check (user_id = auth.uid());
+drop policy if exists validator_checks_select_own_or_admin on public.validator_checks;
+create policy validator_checks_select_own_or_admin on public.validator_checks for select to authenticated using (user_id = auth.uid() or public.is_admin());
 
 -- Allow the Supabase Data API roles to reach the tables; RLS still controls each row.
 grant usage on schema public to anon, authenticated;
@@ -159,6 +180,7 @@ grant select on public.site_settings, public.services to anon, authenticated;
 grant select on public.profiles to authenticated;
 grant insert, select on public.orders to authenticated;
 grant update on public.site_settings, public.services, public.orders to authenticated;
+grant insert, select on public.validator_checks to authenticated;
 
 -- After signing up on the website, run this once with your own email to become admin:
 -- update public.profiles set role = 'admin' where email = 'YOUR-EMAIL-HERE';

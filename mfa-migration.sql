@@ -63,3 +63,27 @@ grant select on public.site_settings, public.services to anon, authenticated;
 grant select on public.profiles to authenticated;
 grant insert, select on public.orders to authenticated;
 grant update on public.site_settings, public.services, public.orders to authenticated;
+
+alter table public.orders add column if not exists payment_status text not null default 'pending';
+alter table public.orders add column if not exists paid_at timestamptz;
+
+create table if not exists public.validator_checks (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  idea text not null,
+  audience text not null,
+  location text not null,
+  goal text not null,
+  budget text not null,
+  score integer not null check (score between 0 and 100),
+  verdict text not null,
+  result jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+alter table public.validator_checks enable row level security;
+drop policy if exists validator_checks_insert_own on public.validator_checks;
+create policy validator_checks_insert_own on public.validator_checks for insert to authenticated with check (user_id = auth.uid());
+drop policy if exists validator_checks_select_own_or_admin on public.validator_checks;
+create policy validator_checks_select_own_or_admin on public.validator_checks for select to authenticated using (user_id = auth.uid() or public.is_admin());
+grant insert, select on public.validator_checks to authenticated;

@@ -19,8 +19,33 @@
 })();
 
 (() => {
+  const getSession = async () => {
+    try {
+      if (!window.CREOVATE_AUTH) return null;
+      const {data} = await window.CREOVATE_AUTH.client().auth.getSession();
+      return data.session || null;
+    } catch (error) { return null; }
+  };
+  const client = () => window.CREOVATE_AUTH.client();
+  const setup = async (form, gate, result) => {
+    const session = await getSession();
+    if (session) {
+      form.hidden = false;
+      gate.hidden = true;
+    } else {
+      form.hidden = true;
+      if (result) result.hidden = true;
+      gate.hidden = false;
+    }
+    return session;
+  };
+  window.CREOVATE_MEMBER = {getSession, client, setup};
+})();
+
+(() => {
   const form = document.querySelector('#brief-form');
   if (!form) return;
+  const gate = document.querySelector('#brief-gate');
   const service = form.elements.namedItem('service');
   const rush = form.elements.namedItem('rush');
   const price = document.querySelector('#brief-price');
@@ -114,6 +139,8 @@
 
   form.addEventListener('submit', async event => {
     event.preventDefault();
+    const session = await window.CREOVATE_MEMBER.getSession();
+    if (!session) { window.location.href = 'login.html?next=index.html%23brief'; return; }
     const data = new FormData(form);
     const selected = selectedService();
     if (!selected) return;
@@ -136,11 +163,11 @@
     try {
       const db = window.creovateSupabase;
       if (db) {
-        const {data: sessionData} = await db.auth.getSession();
-        if (sessionData.session) await db.from('orders').insert({user_id: sessionData.session.user.id, service_slug: selected.slug, service_name: selected.name, price: currentPrice, rush: rushSelected, brief: Object.fromEntries(data.entries())});
+        await db.from('orders').insert({user_id: session.user.id, service_slug: selected.slug, service_name: selected.name, price: currentPrice, rush: rushSelected, brief: Object.fromEntries(data.entries())});
       }
     } catch (error) { /* WhatsApp delivery remains available even when saving is unavailable. */ }
   });
+  window.CREOVATE_MEMBER.setup(form, gate, status);
   loadPublicSettings();
 })();
 
@@ -148,6 +175,7 @@
   const form = document.querySelector('#validator-form');
   const result = document.querySelector('#validator-result');
   if (!form || !result) return;
+  const gate = document.querySelector('#validator-gate');
 
   const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
@@ -156,7 +184,13 @@
 
   form.addEventListener('submit', event => {
     event.preventDefault();
-    const data = new FormData(form);
+    evaluate(form, result);
+  });
+
+  async function evaluate(currentForm, output) {
+    const session = await window.CREOVATE_MEMBER.getSession();
+    if (!session) { window.location.href = 'login.html?next=index.html%23validator'; return; }
+    const data = new FormData(currentForm);
     const idea = String(data.get('idea') || '').trim();
     const audience = String(data.get('audience') || '').trim();
     const location = String(data.get('location') || '').trim();
@@ -187,8 +221,24 @@
     if (budget === 'unknown') nextSteps.push('Estimate the smallest realistic launch budget and monthly running cost.');
     const verdict = score >= 75 ? 'Strong starting point' : score >= 50 ? 'Promising but needs clarity' : 'Needs more definition';
 
+    let saved = true;
+    try {
+      const {error} = await window.CREOVATE_MEMBER.client().from('validator_checks').insert({
+        user_id: session.user.id,
+        idea,
+        audience,
+        location,
+        goal,
+        budget,
+        score,
+        verdict,
+        result: {strengths, gaps, next_steps: nextSteps}
+      });
+      if (error) saved = false;
+    } catch (error) { saved = false; }
     result.hidden = false;
-    result.innerHTML = `<div class="validator-score">${score}/100</div><h3>${escape(verdict)}</h3><p>This is a free first-pass estimate based only on your answers. It is not market research, legal advice, financial advice or a guarantee of success.</p><h4>What looks good</h4><ul>${bullets(strengths.length ? strengths : ['You have started turning an idea into a plan.'])}</ul><h4>What to improve</h4><ul>${bullets(gaps)}</ul><h4>Useful next steps</h4><ul>${bullets(nextSteps)}</ul>`;
+    result.innerHTML = `<div class="validator-score">${score}/100</div><h3>${escape(verdict)}</h3><p>This is a free first-pass estimate based only on your answers. It is not market research, legal advice, financial advice or a guarantee of success.</p><h4>What looks good</h4><ul>${bullets(strengths.length ? strengths : ['You have started turning an idea into a plan.'])}</ul><h4>What to improve</h4><ul>${bullets(gaps)}</ul><h4>Useful next steps</h4><ul>${bullets(nextSteps)}</ul><p class="validator-save-status">${saved ? 'Saved to your customer account.' : 'Result shown, but it could not be saved. Please try again after the database migration is complete.'}</p>`;
     result.scrollIntoView({behavior: 'smooth', block: 'nearest'});
-  });
+  }
+  window.CREOVATE_MEMBER.setup(form, gate, result);
 })();

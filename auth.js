@@ -12,6 +12,11 @@
     element.textContent = text;
     element.classList.toggle('is-error', error);
   };
+  const requestedNext = fallback => {
+    const next = new URLSearchParams(window.location.search).get('next') || '';
+    if (next === 'index.html' || next.startsWith('index.html#') || next === 'account.html') return next;
+    return fallback;
+  };
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[character]));
   const profileFor = async user => {
     if (!user) return null;
@@ -71,7 +76,7 @@
       const { data: result, error } = await client().auth.signInWithPassword({email: data.get('email'), password: data.get('password')});
       if (error) throw error;
       const profile = await profileFor(result.user);
-      window.location.href = profile?.role === 'admin' ? 'admin.html' : 'account.html';
+      window.location.href = profile?.role === 'admin' ? 'admin.html' : requestedNext('account.html');
     } catch (error) { message(status, error.message, true); }
   });
 
@@ -85,7 +90,7 @@
     try {
       const { data: result, error } = await client().auth.signUp({email: data.get('email'), password: data.get('password'), options: {data: {full_name: data.get('name')}}});
       if (error) throw error;
-      if (result.session) window.location.href = 'account.html';
+      if (result.session) window.location.href = requestedNext('account.html');
       else message(status, 'Account created. Check your email to confirm your account, then log in.');
     } catch (error) { message(status, error.message, true); }
   });
