@@ -4,7 +4,7 @@ This is the CREOVATE DesignHub site foundation. It contains the login-first cust
 
 ## Before publishing
 
-The current public address is `https://princeafk12.github.io/creovate-designhub/`. If the site later moves to Cloudflare Pages or a custom domain, update the canonical URL, `robots.txt`, and `sitemap.xml` together.
+The current public address is `https://creovate-designhub.pages.dev/`. This free Cloudflare Pages address works without a custom domain. If you later add a custom domain, update the canonical URL, `robots.txt`, and `sitemap.xml` together.
 
 ## Remaining setup
 
@@ -17,8 +17,7 @@ The default site route, service catalog, brief form, validator, account, and adm
 1. Create or sign in to a Cloudflare account.
 2. Open Workers & Pages and create a Pages project from the GitHub repository.
 3. Choose the no-framework/static option. Leave the build command empty or use `exit 0`; use the repository root as the output directory.
-4. Deploy and note the assigned `*.pages.dev` address.
-5. Replace the placeholder URL in the three files above, commit, and redeploy.
-6. Submit `/sitemap.xml` in Google Search Console and Bing Webmaster Tools.
+4. Deploy and use the assigned `*.pages.dev` address while you do not have a custom domain.
+5. Submit `https://creovate-designhub.pages.dev/sitemap.xml` in Google Search Console and Bing Webmaster Tools. Search engines may take time to list a new site; publication is live immediately, but indexing is not guaranteed or instant.
 
 Cloudflare Pages Functions are discovered from the `functions/` folder. Configure the webhook URL as `/api/flutterwave/webhook`, add `SUPABASE_SERVICE_ROLE_KEY` to the Cloudflare secret store for owner password resets, and keep the account in test mode until all acceptance tests pass.

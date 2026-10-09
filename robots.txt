@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://princeafk12.github.io/creovate-designhub/sitemap.xml
+Sitemap: https://creovate-designhub.pages.dev/sitemap.xml
