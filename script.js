@@ -54,9 +54,30 @@
   const status = document.querySelector('#brief-status');
   const formatNaira = value => `₦${Number(value).toLocaleString('en-NG')}`;
   const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[character]));
-  const fallbackSettings = {launch_active: true, launch_spots_total: 15, launch_spots_remaining: 15, discount_percent: 30, rush_percent: 30};
+  const fallbackSettings = {launch_active: true, launch_spots_total: 15, launch_spots_remaining: 15, discount_percent: 30, rush_percent: 30, offer_message: ''};
+  const applySiteContent = content => {
+    const values = content && typeof content === 'object' ? content : {};
+    document.querySelectorAll('[data-content-text]').forEach(element => {
+      const value = values[element.dataset.contentText];
+      if (typeof value === 'string' && value.trim()) element.textContent = value;
+    });
+    document.querySelectorAll('[data-content-url]').forEach(element => {
+      const value = values[element.dataset.contentUrl];
+      if (typeof value === 'string' && /^https?:\/\//i.test(value.trim())) element.href = value.trim();
+    });
+    const email = values.contact_email;
+    document.querySelectorAll('[data-content-email]').forEach(element => {
+      if (typeof email === 'string' && email.trim()) {
+        element.href = `mailto:${email.trim()}`;
+        element.textContent = email.trim();
+      }
+    });
+  };
   let settings = {...fallbackSettings};
   const slugFor = name => ({'Logo design':'logo','Flyer / poster':'flyer','Social media post':'social-post','Social media pack':'social-pack','Business card':'business-card','Full brand kit':'brand-kit'}[name] || name.toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+  const knownServiceSlugs = ['logo', 'flyer', 'social-post', 'social-pack', 'business-card', 'brand-kit'];
+  document.querySelectorAll('.service-card').forEach((card, index) => { if (!card.dataset.serviceSlug && knownServiceSlugs[index]) card.dataset.serviceSlug = knownServiceSlugs[index]; });
+  Array.from(service.options).filter(option => option.dataset.launch).forEach((option, index) => { if (!option.dataset.slug && knownServiceSlugs[index]) option.dataset.slug = knownServiceSlugs[index]; });
   let services = Array.from(service.options).filter(option => option.dataset.launch).map(option => ({slug: option.dataset.slug || slugFor(option.value), name: option.value, launch_price: Number(option.dataset.launch), standard_price: Number(option.dataset.standard), rush_enabled: option.dataset.rush === 'true', rush_percent: 30}));
   const activeLaunch = () => settings.launch_active && Number(settings.launch_spots_remaining) > 0;
   const selectedService = () => services.find(item => item.slug === (service.options[service.selectedIndex]?.dataset.slug || slugFor(service.value))) || null;
@@ -87,9 +108,11 @@
   const applyPublicSettings = () => {
     document.querySelectorAll('.service-card').forEach(card => {
       const name = card.querySelector('h3')?.textContent.trim();
-      const item = services.find(serviceItem => serviceItem.name === name);
+      const item = services.find(serviceItem => serviceItem.slug === card.dataset.serviceSlug || serviceItem.name === name);
       if (!item) return;
       card.dataset.serviceSlug = item.slug;
+      const title = card.querySelector('h3');
+      if (title) title.textContent = item.name;
       const priceElement = card.querySelector('.price');
       if (priceElement) priceElement.innerHTML = `${formatNaira(activeLaunch() ? item.launch_price : item.standard_price)} <del>${formatNaira(activeLaunch() ? item.standard_price : item.launch_price)}</del>`;
       const deliveryElement = card.querySelector('.meta');
@@ -100,8 +123,9 @@
       if (meta && item.delivery_time) meta.textContent = `Delivery: ${item.delivery_time}`;
     });
     Array.from(service.options).forEach(option => {
-      const item = services.find(serviceItem => serviceItem.name === option.textContent.trim());
+      const item = services.find(serviceItem => serviceItem.slug === option.dataset.slug || serviceItem.name === option.textContent.trim());
       if (!item) return;
+      option.textContent = item.name;
       option.dataset.slug = item.slug;
       option.dataset.launch = item.launch_price;
       option.dataset.standard = item.standard_price;
@@ -110,7 +134,10 @@
     const label = document.querySelector('#launch-label');
     const offer = document.querySelector('#offer-copy');
     if (label) label.textContent = activeLaunch() ? `Launch offer: first ${settings.launch_spots_total} bookings only` : 'Launch offer ended — standard prices now apply';
-    if (offer) offer.innerHTML = activeLaunch() ? `<strong>${settings.discount_percent}% off</strong> every design service for the first <strong>${settings.launch_spots_remaining} remaining booking(s)</strong> after launch. Standard prices apply after those bookings are taken.` : '<strong>Launch offer ended.</strong> Standard prices now apply to all new bookings.';
+    if (offer) {
+      const customOffer = String(settings.offer_message || '').trim();
+      offer.textContent = customOffer || (activeLaunch() ? `${settings.discount_percent}% off every design service for the first ${settings.launch_spots_remaining} remaining booking(s) after launch. Standard prices apply after those bookings are taken.` : 'Launch offer ended. Standard prices now apply to all new bookings.');
+    }
     updateQuote();
   };
 
@@ -125,6 +152,7 @@
       if (settingsData) settings = {...settings, ...settingsData};
       if (servicesData?.length) services = servicesData;
       applyPublicSettings();
+      applySiteContent(settings.content || {});
     } catch (error) { /* Static fallback remains usable if the database is not configured yet. */ }
   };
 

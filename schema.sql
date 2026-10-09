@@ -16,6 +16,7 @@ create table if not exists public.site_settings (
   discount_percent integer not null default 30 check (discount_percent between 0 and 100),
   rush_percent integer not null default 30 check (rush_percent between 0 and 100),
   offer_message text not null default '30% off every design service for the first 15 bookings after launch.',
+  content jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now()
 );
 

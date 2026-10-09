@@ -1,6 +1,6 @@
 # CREOVATE - DesignHub
 
-This is the CREOVATE DesignHub site foundation. It contains the login-first customer experience, service details, WhatsApp brief handoff, server-side checkout/webhook/validator function routes, portfolio links, saved orders and reports, and an owner-only admin area for offer and service settings.
+This is the CREOVATE DesignHub site foundation. It contains the login-first customer experience, service details, WhatsApp brief handoff, server-side checkout/webhook/validator function routes, portfolio links, saved orders and reports, and an owner-only admin area for offer, service, public content, customer review, and customer password support.
 
 ## Before publishing
 
@@ -8,9 +8,9 @@ The current public address is `https://princeafk12.github.io/creovate-designhub/
 
 ## Remaining setup
 
-Run `schema.sql` once in the Supabase SQL Editor. If the database already exists, run `mfa-migration.sql` and `phase-3-4-migration.sql` too. Then create the owner account through `login.html`, promote only `olanitealabij2023@gmail.com` with the SQL comment at the bottom of the schema, and enrol an authenticator app from `admin-login.html`. The server function routes require the environment variables documented in `.dev.vars.example`.
+Run `schema.sql` once in the Supabase SQL Editor. If the database already exists, run `mfa-migration.sql`, `phase-3-4-migration.sql`, and `phase-5-admin-content-password-migration.sql` too. Then create the owner account through `login.html`, promote only `olanitealabij2023@gmail.com` with the SQL comment at the bottom of the schema, and enrol an authenticator app from `admin-login.html`. The server function routes require the environment variables documented in `.dev.vars.example`.
 
-The default site route, service catalog, brief form, validator, account, and admin area require an authenticated customer session. The server checkout endpoint creates the order and Flutterwave payment link. The webhook re-verifies the transaction before marking it paid. The validator uses the server-side live-search provider and saves source-backed reports when its caps are configured. Never place server secrets in frontend files.
+The default site route, service catalog, brief form, validator, account, and admin area require an authenticated customer session. The server checkout endpoint creates the order and Flutterwave payment link. The webhook re-verifies the transaction before marking it paid. The validator uses the server-side live-search provider and saves source-backed reports when its caps are configured. Never place server secrets in frontend files. The login recovery link opens a WhatsApp request to `08084002972`; the owner resets customer passwords from the admin panel through the server-only Supabase service key.
 
 ## Publish with Cloudflare Pages
 
@@ -21,4 +21,4 @@ The default site route, service catalog, brief form, validator, account, and adm
 5. Replace the placeholder URL in the three files above, commit, and redeploy.
 6. Submit `/sitemap.xml` in Google Search Console and Bing Webmaster Tools.
 
-Cloudflare Pages Functions are discovered from the `functions/` folder. Configure the webhook URL as `/api/flutterwave/webhook` and keep the account in test mode until all acceptance tests pass.
+Cloudflare Pages Functions are discovered from the `functions/` folder. Configure the webhook URL as `/api/flutterwave/webhook`, add `SUPABASE_SERVICE_ROLE_KEY` to the Cloudflare secret store for owner password resets, and keep the account in test mode until all acceptance tests pass.

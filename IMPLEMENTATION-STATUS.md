@@ -12,6 +12,9 @@ Updated 2026-10-09.
 - Server-side validator route using a configured live-search provider, source URLs, accessed dates, daily limits, search limits, and a monthly cost cap; the report layout covers demand, competition, finance, setup, risks, experiments, scoring, and a 30-day action plan.
 - Customer activity is queried with an explicit account filter in the client and enforced by Supabase row-level security; the owner dashboard can review a selected account read-only.
 - Completed validator reports are saved in `validator_checks`; customers can reopen their full report and sources in their account, and the owner can open the saved details from the admin customer view.
+- Admin website editor now covers the editable offer message, public copy, and contact/portfolio/social links; changes are stored in `site_settings.content` and applied by the public site without a redeploy.
+- Admin now has a visible “View website” link and an owner-only customer password-reset form backed by `functions/api/admin/reset-password.js`.
+- The customer forgot-password panel now opens a prefilled WhatsApp request to `08084002972` without asking the customer to send a password.
 - The signed-in navigation changes from “Create account” to “My account”; the reset-password link remains available only on the pre-login page.
 - Supabase schema/migration updates for transaction references, payment verification, webhook events, validator provider usage, and owner checks. The phase 3-4 migration was executed successfully in the connected CREOVATE Supabase project.
 - Payment return page and Cloudflare Pages Functions environment template.
@@ -27,6 +30,8 @@ Updated 2026-10-09.
 ## Still requires the owner
 
 - Cloudflare, Flutterwave, Resend, and live-search provider accounts/configuration.
+- Run `phase-5-admin-content-password-migration.sql` in Supabase before saving the new website content editor.
+- Add `SUPABASE_SERVICE_ROLE_KEY` as a Cloudflare secret before using the admin customer password reset route.
 - Adding production secrets to the Cloudflare secret store.
 - Deploying the Cloudflare Pages Functions so `/api/checkout` and `/api/validator` exist outside the static local preview. The local preview intentionally returns 404 for these server routes.
 - Configuring Auth redirect URLs, the Flutterwave webhook URL, sender-domain verification, and spending caps.

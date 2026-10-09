@@ -12,8 +12,8 @@
       <form id="login-form" class="auth-form"><label>Email address<input name="email" type="email" autocomplete="email" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button class="button button-dark" type="submit">Log in</button></form>
       <p class="auth-links"><button type="button" class="auth-link-button" id="reset-toggle" aria-controls="reset-inline" aria-expanded="false">Forgot your password?</button> · <a href="admin-login.html">Admin login</a></p>
       <div class="inline-reset" id="reset-inline" hidden>
-        <p>Enter your email and we’ll send you a password-reset link.</p>
-        <form id="reset-request-form" class="auth-form inline-reset-form"><label>Email address<input name="email" type="email" autocomplete="email" required></label><div class="inline-reset-actions"><button class="button button-outline-dark" type="submit">Send reset link</button><button type="button" class="text-button" id="reset-cancel">Cancel</button></div></form>
+        <p>Enter the email on the account, then message the owner on WhatsApp at <strong>08084002972</strong>. The owner will reset the account for you. Never send your current password.</p>
+        <form id="reset-request-form" class="auth-form inline-reset-form"><label>Email address<input name="email" type="email" autocomplete="email" required></label><div class="inline-reset-actions"><a class="button button-outline-dark" id="whatsapp-reset-link" href="https://wa.me/2348084002972" target="_blank" rel="noopener noreferrer">Message owner on WhatsApp</a><button type="button" class="text-button" id="reset-cancel">Cancel</button></div></form>
       </div>
       <p data-auth-message class="form-status" role="status" aria-live="polite"></p>
     </section>

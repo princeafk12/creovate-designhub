@@ -112,6 +112,7 @@
   const resetToggle = document.querySelector('#reset-toggle');
   const resetInline = document.querySelector('#reset-inline');
   const resetCancel = document.querySelector('#reset-cancel');
+  const whatsappResetLink = document.querySelector('#whatsapp-reset-link');
   const setResetOpen = open => {
     if (!resetInline || !resetToggle) return;
     resetInline.hidden = !open;
@@ -122,17 +123,32 @@
   resetCancel?.addEventListener('click', () => setResetOpen(false));
 
   const resetRequestForm = document.querySelector('#reset-request-form');
-  if (resetRequestForm) resetRequestForm.addEventListener('submit', async event => {
-    event.preventDefault();
-    const status = document.querySelector('[data-auth-message]');
-    const email = new FormData(resetRequestForm).get('email');
-    message(status, 'Sending the reset link…');
-    try {
-      const {error} = await client().auth.resetPasswordForEmail(email, {redirectTo: publicUrl('reset.html')});
-      if (error) throw error;
-      message(status, 'If an account exists for that email, a password-reset link has been sent.');
-    } catch (error) { message(status, error.message, true); }
-  });
+  if (resetRequestForm && whatsappResetLink) {
+    const updateWhatsAppLink = () => {
+      const email = String(new FormData(resetRequestForm).get('email') || '').trim();
+      const text = email
+        ? `Hello CREOVATE. I cannot log in and need a password reset for the account ${email}. Please reset it for me. I will not send my current password.`
+        : 'Hello CREOVATE. I cannot log in and need help resetting my customer account password.';
+      whatsappResetLink.href = `https://wa.me/2348084002972?text=${encodeURIComponent(text)}`;
+    };
+    resetRequestForm.querySelector('input[name="email"]')?.addEventListener('input', updateWhatsAppLink);
+    resetRequestForm.addEventListener('submit', event => {
+      event.preventDefault();
+      updateWhatsAppLink();
+      whatsappResetLink.click();
+    });
+    whatsappResetLink.addEventListener('click', event => {
+      const email = String(new FormData(resetRequestForm).get('email') || '').trim();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        event.preventDefault();
+        message(document.querySelector('[data-auth-message]'), 'Enter the email on your account first.', true);
+        resetRequestForm.querySelector('input[name="email"]')?.focus();
+        return;
+      }
+      updateWhatsAppLink();
+      message(document.querySelector('[data-auth-message]'), 'WhatsApp is opening with your reset request. Do not send a password.');
+    });
+  }
 
   const adminLoginForm = document.querySelector('#admin-login-form');
   if (adminLoginForm) adminLoginForm.addEventListener('submit', async event => {
