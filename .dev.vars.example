@@ -9,11 +9,6 @@ FLW_SECRET_HASH=
 RESEND_API_KEY=
 EMAIL_FROM=
 OWNER_NOTIFICATION_EMAIL=olanitealabij2023@gmail.com
-ANTHROPIC_API_KEY=
-VALIDATOR_MODEL=
-VALIDATOR_MONTHLY_SPEND_LIMIT_MINOR=
-VALIDATOR_ESTIMATED_COST_MINOR_PER_REPORT=
-VALIDATOR_MAX_SEARCHES_PER_REPORT=5
-VALIDATOR_MAX_REPORTS_PER_USER_PER_DAY=3
+# Reserved for the future live validator release. No live-search provider is active yet.
+# Do not add provider keys until the validator is released and the provider has been verified.
 APP_BASE_URL=http://localhost:8788
-

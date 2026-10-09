@@ -9,7 +9,7 @@ Updated 2026-10-09.
 - Service/pricing updates continue to come from Supabase and refresh visible price, delivery, and description fields.
 - Server-side checkout route for creating an order and Flutterwave payment link.
 - Flutterwave webhook route with `verif-hash` checking, transaction re-verification, amount/currency/reference checks, duplicate-event protection, and paid/failed email hooks.
-- Server-side validator route using a configured live-search provider, source URLs, accessed dates, daily limits, search limits, and a monthly cost cap; the report layout covers demand, competition, finance, setup, risks, experiments, scoring, and a 30-day action plan.
+- Business-plan validator is clearly marked Coming Soon; the live-search route is intentionally disabled until the provider, source verification, safety checks, and spending controls are complete.
 - Customer activity is queried with an explicit account filter in the client and enforced by Supabase row-level security; the owner dashboard can review a selected account read-only.
 - Completed validator reports are saved in `validator_checks`; customers can reopen their full report and sources in their account, and the owner can open the saved details from the admin customer view.
 - Admin website editor now covers the editable offer message, public copy, and contact/portfolio/social links; changes are stored in `site_settings.content` and applied by the public site without a redeploy.
@@ -29,12 +29,12 @@ Updated 2026-10-09.
 
 ## Still requires the owner
 
-- Cloudflare, Flutterwave, Resend, and live-search provider accounts/configuration.
+- Cloudflare, Flutterwave, Resend, and future live-search provider accounts/configuration.
 - Run `phase-5-admin-content-password-migration.sql` in Supabase before saving the new website content editor.
 - Add `SUPABASE_SERVICE_ROLE_KEY` as a Cloudflare secret before using the admin customer password reset route.
 - Adding production secrets to the Cloudflare secret store.
-- Deploying the Cloudflare Pages Functions so `/api/checkout` and `/api/validator` exist outside the static local preview. The local preview intentionally returns 404 for these server routes.
-- Configuring Auth redirect URLs, the Flutterwave webhook URL, sender-domain verification, and spending caps.
+- Deploying the Cloudflare Pages Functions so `/api/checkout` exists outside the static local preview. The validator endpoint currently returns an intentional Coming Soon response.
+- Configuring Auth redirect URLs, the Flutterwave webhook URL, and sender-domain verification. Validator spending caps remain deferred until the live provider is selected.
 - Verifying a sending domain in Resend and changing Supabase SMTP’s sender to that verified domain before relying on password-reset and order-notification emails for normal customers.
 - Testing real sign-in, payments, webhooks, email delivery, live sources, phone layouts, and all 14 acceptance tests.
 
