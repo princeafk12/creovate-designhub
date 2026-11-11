@@ -35,7 +35,7 @@ import { getAuth, multiFactor, onAuthStateChanged, reauthenticateWithCredential,
     });
   });
   if (!user || String(user.email || '').toLowerCase() !== OWNER_EMAIL) {
-    window.location.href = 'admin-login.html';
+    window.location.href = 'admin-login';
     return;
   }
   if (!user.emailVerified) {
@@ -77,7 +77,7 @@ import { getAuth, multiFactor, onAuthStateChanged, reauthenticateWithCredential,
     try {
       await multiFactor(user).enroll(TotpMultiFactorGenerator.assertionForEnrollment(totpSecret, code), 'CREOVATE admin authenticator');
       await auth.signOut();
-      window.location.href = 'admin-login.html?enrolled=1';
+      window.location.href = 'admin-login?enrolled=1';
     } catch (error) {
       if (submit) submit.disabled = false;
       message(error.message || 'The authenticator code could not be confirmed.', true);

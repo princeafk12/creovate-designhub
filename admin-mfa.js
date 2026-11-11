@@ -54,7 +54,7 @@ import { getAuth, getMultiFactorResolver, multiFactor, sendEmailVerification, si
         return;
       }
       if (!multiFactor(user).enrolledFactors.length) {
-        window.location.href = 'mfa.html?mode=enroll&next=admin.html';
+        window.location.href = 'mfa?mode=enroll&next=admin.html';
         return;
       }
       message('Your authenticator is enrolled, but Firebase did not request its code. The project TOTP provider still needs to be enabled.', true);
