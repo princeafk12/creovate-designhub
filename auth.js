@@ -162,6 +162,26 @@
   if (resetRequestForm && whatsappResetLink) resetRequestForm.addEventListener('submit', event => { event.preventDefault(); const email = String(new FormData(resetRequestForm).get('email') || '').trim(); if (!email) return; whatsappResetLink.href = `https://wa.me/2348084002972?text=${encodeURIComponent(`Hello CREOVATE. I need a password reset for ${email}.`)}`; whatsappResetLink.click(); });
   const updatePasswordForm = document.querySelector('#update-password-form');
   if (updatePasswordForm) updatePasswordForm.addEventListener('submit', async event => { event.preventDefault(); const data = new FormData(updatePasswordForm); const status = document.querySelector('[data-auth-message]'); if (data.get('password') !== data.get('confirm_password')) { message(status, 'The passwords do not match.', true); return; } const result = await client().auth.updateUser({password: data.get('password')}); if (result.error) message(status, result.error.message, true); else message(status, 'Password updated. You can now return to login.'); });
+  document.querySelectorAll('input[type="password"]').forEach(input => {
+    const wrapper = document.createElement('span');
+    wrapper.className = 'password-input-wrap';
+    input.parentNode.insertBefore(wrapper, input);
+    wrapper.appendChild(input);
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'password-toggle';
+    toggle.setAttribute('aria-label', 'Show password');
+    toggle.setAttribute('title', 'Show password');
+    toggle.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M2.1 12s3.2-6 9.9-6 9.9 6 9.9 6-3.2 6-9.9 6-9.9-6-9.9-6Z"></path><circle cx="12" cy="12" r="2.6"></circle></svg>';
+    toggle.addEventListener('click', () => {
+      const visible = input.type === 'text';
+      input.type = visible ? 'password' : 'text';
+      toggle.setAttribute('aria-label', visible ? 'Show password' : 'Hide password');
+      toggle.setAttribute('title', visible ? 'Show password' : 'Hide password');
+      toggle.classList.toggle('is-visible', !visible);
+    });
+    wrapper.appendChild(toggle);
+  });
   window.CREOVATE_AUTH = {client, profileFor, requireUser, requireAdmin, verifiedTotpFactors: async () => [], continueAdminMfa, escapeHtml, message, OWNER_EMAIL};
 })();
 
