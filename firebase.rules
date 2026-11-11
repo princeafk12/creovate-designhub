@@ -1,0 +1,42 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function owner() {
+      return signedIn() && request.auth.token.email == 'olanitealabij2023@gmail.com';
+    }
+    function ownUser() {
+      return signedIn() && resource.data.user_id == request.auth.uid;
+    }
+    function newOwnUser() {
+      return signedIn() && request.resource.data.user_id == request.auth.uid;
+    }
+
+    match /profiles/{userId} {
+      allow read, write: if owner() || (signedIn() && request.auth.uid == userId);
+    }
+    match /site_settings/{document} {
+      allow read: if signedIn();
+      allow write: if owner();
+    }
+    match /services/{document} {
+      allow read: if signedIn();
+      allow write: if owner();
+    }
+    match /orders/{document} {
+      allow read: if owner() || ownUser();
+      allow create: if newOwnUser();
+      allow update, delete: if owner() || ownUser();
+    }
+    match /validator_checks/{document} {
+      allow read: if owner() || ownUser();
+      allow create: if newOwnUser();
+      allow update, delete: if owner() || ownUser();
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+

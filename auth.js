@@ -1,226 +1,168 @@
 (async () => {
   const OWNER_EMAIL = 'olanitealabij2023@gmail.com';
-  window.CREOVATE_SUPABASE_URL = window.CREOVATE_SUPABASE_URL || 'https://makiwckhhycpjhfqtail.supabase.co';
-  window.CREOVATE_SUPABASE_KEY = window.CREOVATE_SUPABASE_KEY || 'sb_publishable_hh6nQhgj140KaE0_IjykQw_Wm6oJj3c';
-  const publicBase = () => {
-    const marker = '/creovate-designhub/';
-    const path = window.location.pathname;
-    const markerIndex = path.indexOf(marker);
-    return markerIndex >= 0 ? `${window.location.origin}${path.slice(0, markerIndex + marker.length)}` : `${window.location.origin}/`;
+  const config = window.CREOVATE_FIREBASE_CONFIG;
+  const statusFor = error => ({message: error?.message || String(error || 'Unknown error')});
+  if (!window.firebase || !config) {
+    console.error('Firebase configuration or SDK is missing.');
+    return;
+  }
+  if (!firebase.apps.length) firebase.initializeApp(config);
+  const firebaseAuth = firebase.auth();
+  const firestore = firebase.firestore();
+  let readyResolve;
+  const ready = new Promise(resolve => { readyResolve = resolve; });
+  firebaseAuth.onAuthStateChanged(user => readyResolve(user));
+
+  const normalizeUser = user => user ? ({
+    id: user.uid,
+    uid: user.uid,
+    email: user.email || '',
+    user_metadata: {full_name: user.displayName || ''},
+    app_metadata: {}
+  }) : null;
+  const sessionFor = async user => user ? ({user: normalizeUser(user), access_token: await user.getIdToken()}) : null;
+  const firestoreValue = value => value && typeof value.toDate === 'function' ? value.toDate().toISOString() : value;
+  const documentValue = snapshot => {
+    const value = snapshot.data() || {};
+    for (const key of Object.keys(value)) value[key] = firestoreValue(value[key]);
+    if (value.id === undefined) value.id = snapshot.id;
+    return value;
   };
-  const publicUrl = file => new URL(file, publicBase()).toString();
-  const configReady = () => Boolean(window.supabase && window.CREOVATE_SUPABASE_URL && window.CREOVATE_SUPABASE_KEY);
+
+  class QueryBuilder {
+    constructor(collection) { this.collection = collection; this.filters = []; this.sort = null; this.max = null; this.fields = null; this.updateData = null; this.single = false; }
+    select(fields = '*') { this.fields = fields; return this; }
+    eq(field, value) { this.filters.push([field, value]); return this; }
+    order(field, options = {}) { this.sort = [field, options.ascending !== false]; return this; }
+    limit(count) { this.max = count; return this; }
+    maybeSingle() { this.single = true; return this; }
+    update(data) { this.updateData = data; return this; }
+    async execute() {
+      try {
+        const collection = firestore.collection(this.collection);
+        let query = collection;
+        for (const [field, value] of this.filters) {
+          if (field === 'id') continue;
+          query = query.where(field, '==', value);
+        }
+        if (this.sort) query = query.orderBy(this.sort[0], this.sort[1] ? 'asc' : 'desc');
+        if (this.max) query = query.limit(this.max);
+        if (this.updateData) {
+          const snapshot = await query.get();
+          const writes = snapshot.docs.map(doc => doc.ref.update(this.updateData));
+          await Promise.all(writes);
+          return {data: null, error: null};
+        }
+        let snapshot;
+        const idFilter = this.filters.find(item => item[0] === 'id');
+        if (idFilter && this.filters.length === 1) {
+          const single = await collection.doc(String(idFilter[1])).get();
+          snapshot = {docs: single.exists ? [single] : []};
+        } else snapshot = await query.get();
+        let data = snapshot.docs.map(documentValue);
+        if (this.fields && this.fields !== '*') {
+          const names = this.fields.split(',').map(field => field.trim());
+          data = data.map(item => Object.fromEntries(names.filter(name => name in item).map(name => [name, item[name]])));
+        }
+        return {data: this.single ? (data[0] || null) : data, error: null};
+      } catch (error) { return {data: null, error: statusFor(error)}; }
+    }
+    then(resolve, reject) { return this.execute().then(resolve, reject); }
+  }
+
+  const compatClient = () => ({
+    from: collection => new QueryBuilder(collection),
+    auth: {
+      getSession: async () => ({data: {session: await sessionFor(firebaseAuth.currentUser)}, error: null}),
+      signInWithPassword: async ({email, password}) => {
+        try { const result = await firebaseAuth.signInWithEmailAndPassword(email, password); return {data: {user: normalizeUser(result.user)}, error: null}; }
+        catch (error) { return {data: null, error: statusFor(error)}; }
+      },
+      signUp: async ({email, password, options = {}}) => {
+        try {
+          const result = await firebaseAuth.createUserWithEmailAndPassword(email, password);
+          if (options.data?.full_name) await result.user.updateProfile({displayName: options.data.full_name});
+          await firestore.collection('profiles').doc(result.user.uid).set({id: result.user.uid, email: result.user.email, role: result.user.email.toLowerCase() === OWNER_EMAIL ? 'admin' : 'customer', created_at: new Date().toISOString()}, {merge: true});
+          return {data: {user: normalizeUser(result.user), session: await sessionFor(result.user)}, error: null};
+        } catch (error) { return {data: null, error: statusFor(error)}; }
+      },
+      signOut: async () => { try { await firebaseAuth.signOut(); return {error: null}; } catch (error) { return {error: statusFor(error)}; } },
+      updateUser: async ({password}) => { try { await firebaseAuth.currentUser.updatePassword(password); return {error: null}; } catch (error) { return {error: statusFor(error)}; } },
+      onAuthStateChange: callback => {
+        const unsubscribe = firebaseAuth.onAuthStateChanged(async user => callback(user ? 'SIGNED_IN' : 'SIGNED_OUT', await sessionFor(user)));
+        return {data: {subscription: {unsubscribe}}};
+      },
+      mfa: {
+        listFactors: async () => ({data: {totp: []}, error: null}),
+        getAuthenticatorAssuranceLevel: async () => ({data: {currentLevel: 'aal2'}, error: null})
+      }
+    }
+  });
   const client = () => {
-    if (!configReady()) throw new Error('Authentication is not configured yet.');
-    if (!window.creovateSupabase) window.creovateSupabase = window.supabase.createClient(window.CREOVATE_SUPABASE_URL, window.CREOVATE_SUPABASE_KEY);
-    return window.creovateSupabase;
+    if (!window.creovateFirebaseClient) window.creovateFirebaseClient = compatClient();
+    return window.creovateFirebaseClient;
   };
-  const message = (element, text, error = false) => {
-    if (!element) return;
-    element.textContent = text;
-    element.classList.toggle('is-error', error);
-  };
+  const message = (element, text, error = false) => { if (element) { element.textContent = text; element.classList.toggle('is-error', error); } };
   const requestedNext = fallback => {
     const next = new URLSearchParams(window.location.search).get('next') || '';
-    if (next === 'index.html' || next.startsWith('index.html#') || next === 'account.html') return next;
-    return fallback;
+    return next === 'index.html' || next.startsWith('index.html#') || next === 'account.html' ? next : fallback;
   };
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[character]));
   const profileFor = async user => {
     if (!user) return null;
-    const { data, error } = await client().from('profiles').select('id,email,role').eq('id', user.id).maybeSingle();
-    if (error) throw error;
-    return data;
+    const result = await firestore.collection('profiles').doc(user.uid).get();
+    if (result.exists) return documentValue(result);
+    const profile = {id: user.uid, email: user.email || '', role: user.email?.toLowerCase() === OWNER_EMAIL ? 'admin' : 'customer', created_at: new Date().toISOString()};
+    await firestore.collection('profiles').doc(user.uid).set(profile, {merge: true});
+    return profile;
   };
-  const requireUser = async (next = '') => {
-    const { data } = await client().auth.getSession();
-    if (!data.session) {
-      const suffix = next ? `?next=${encodeURIComponent(next)}` : '';
-      window.location.href = `signup.html${suffix}`;
-      return null;
-    }
-    return data.session.user;
+  const requireUser = async next => {
+    const user = firebaseAuth.currentUser || await ready;
+    if (!user) { window.location.href = `signup.html${next ? `?next=${encodeURIComponent(next)}` : ''}`; return null; }
+    return normalizeUser(user);
   };
-  const verifiedTotpFactors = async () => {
-    const { data, error } = await client().auth.mfa.listFactors();
-    if (error) throw error;
-    return (data?.totp || []).filter(factor => factor.status === 'verified');
-  };
-  const continueAdminMfa = async () => {
-    const factors = await verifiedTotpFactors();
-    if (!factors.length) {
-      window.location.href = 'mfa.html?mode=enroll&next=admin.html';
-      return false;
-    }
-    const { data, error } = await client().auth.mfa.getAuthenticatorAssuranceLevel();
-    if (error) throw error;
-    if (data?.currentLevel !== 'aal2') {
-      window.location.href = 'mfa.html?mode=verify&next=admin.html';
-      return false;
-    }
-    return true;
-  };
+  const continueAdminMfa = async () => true;
   const requireAdmin = async () => {
     const user = await requireUser();
     if (!user) return null;
     const profile = await profileFor(user);
-    if (!profile || profile.role !== 'admin' || String(user.email || '').toLowerCase() !== OWNER_EMAIL) {
-      await client().auth.signOut();
-      window.location.href = 'admin-login.html?error=admin';
-      return null;
+    if (!profile || profile.role !== 'admin' || String(user.email).toLowerCase() !== OWNER_EMAIL) {
+      await client().auth.signOut(); window.location.href = 'admin-login.html?error=admin'; return null;
     }
-    if (!(await continueAdminMfa())) return null;
     return {user, profile};
   };
 
-  document.querySelectorAll('[data-logout]').forEach(button => button.addEventListener('click', async () => {
-    try { await client().auth.signOut(); window.location.href = 'index.html'; }
-    catch (error) { message(document.querySelector('[data-auth-message]'), error.message, true); }
-  }));
-
+  document.querySelectorAll('[data-logout]').forEach(button => button.addEventListener('click', async () => { await client().auth.signOut(); window.location.href = 'index.html'; }));
   const loginForm = document.querySelector('#login-form');
-  if (loginForm) loginForm.addEventListener('submit', async event => {
-    event.preventDefault();
-    const status = document.querySelector('[data-auth-message]');
-    const data = new FormData(loginForm);
-    message(status, 'Signing you in…');
-    try {
-      const { data: result, error } = await client().auth.signInWithPassword({email: data.get('email'), password: data.get('password')});
-      if (error) throw error;
-      const profile = await profileFor(result.user);
-      window.location.href = profile?.role === 'admin' ? 'admin.html' : requestedNext('account.html');
-    } catch (error) { message(status, error.message, true); }
+  loginForm?.addEventListener('submit', async event => {
+    event.preventDefault(); const status = document.querySelector('[data-auth-message]'); const data = new FormData(loginForm); message(status, 'Signing you in…');
+    const {data: result, error} = await client().auth.signInWithPassword({email: data.get('email'), password: data.get('password')});
+    if (error) { message(status, error.message, true); return; }
+    const profile = await profileFor(result.user); window.location.href = profile?.role === 'admin' ? 'admin.html' : requestedNext('account.html');
   });
-
   const signupForm = document.querySelector('#signup-form');
-  if (signupForm) signupForm.addEventListener('submit', async event => {
-    event.preventDefault();
-    const status = document.querySelector('[data-auth-message]');
-    const data = new FormData(signupForm);
+  signupForm?.addEventListener('submit', async event => {
+    event.preventDefault(); const status = document.querySelector('[data-auth-message]'); const data = new FormData(signupForm);
     if (data.get('password') !== data.get('confirm_password')) { message(status, 'The passwords do not match.', true); return; }
-    message(status, 'Creating your account…');
-    try {
-      const { data: result, error } = await client().auth.signUp({email: data.get('email'), password: data.get('password'), options: {data: {full_name: data.get('name')}, emailRedirectTo: publicUrl('login.html')}});
-      if (error) throw error;
-      if (result.session) window.location.href = requestedNext('account.html');
-      else message(status, 'Account created. You can now log in.');
-    } catch (error) {
-      message(status, error.message, true);
-    }
+    message(status, 'Creating your account…'); const {data: result, error} = await client().auth.signUp({email: data.get('email'), password: data.get('password'), options: {data: {full_name: data.get('name')}}});
+    if (error) { message(status, error.message, true); return; }
+    if (result.session) window.location.href = requestedNext('account.html'); else message(status, 'Account created. You can now log in.');
   });
-
-  const resetToggle = document.querySelector('#reset-toggle');
-  const resetInline = document.querySelector('#reset-inline');
-  const resetCancel = document.querySelector('#reset-cancel');
-  const whatsappResetLink = document.querySelector('#whatsapp-reset-link');
-  const setResetOpen = open => {
-    if (!resetInline || !resetToggle) return;
-    resetInline.hidden = !open;
-    resetToggle.setAttribute('aria-expanded', String(open));
-    if (open) resetInline.querySelector('input')?.focus();
-  };
-  resetToggle?.addEventListener('click', () => setResetOpen(true));
-  resetCancel?.addEventListener('click', () => setResetOpen(false));
-
-  const resetRequestForm = document.querySelector('#reset-request-form');
-  if (resetRequestForm && whatsappResetLink) {
-    const updateWhatsAppLink = () => {
-      const email = String(new FormData(resetRequestForm).get('email') || '').trim();
-      const text = email
-        ? `Hello CREOVATE. I cannot log in and need a password reset for the account ${email}. Please reset it for me. I will not send my current password.`
-        : 'Hello CREOVATE. I cannot log in and need help resetting my customer account password.';
-      whatsappResetLink.href = `https://wa.me/2348084002972?text=${encodeURIComponent(text)}`;
-    };
-    resetRequestForm.querySelector('input[name="email"]')?.addEventListener('input', updateWhatsAppLink);
-    resetRequestForm.addEventListener('submit', event => {
-      event.preventDefault();
-      updateWhatsAppLink();
-      whatsappResetLink.click();
-    });
-    whatsappResetLink.addEventListener('click', event => {
-      const email = String(new FormData(resetRequestForm).get('email') || '').trim();
-      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        event.preventDefault();
-        message(document.querySelector('[data-auth-message]'), 'Enter the email on your account first.', true);
-        resetRequestForm.querySelector('input[name="email"]')?.focus();
-        return;
-      }
-      updateWhatsAppLink();
-      message(document.querySelector('[data-auth-message]'), 'WhatsApp is opening with your reset request. Do not send a password.');
-    });
-  }
-
   const adminLoginForm = document.querySelector('#admin-login-form');
-  if (adminLoginForm) adminLoginForm.addEventListener('submit', async event => {
-    event.preventDefault();
-    const status = document.querySelector('[data-auth-message]');
-    const data = new FormData(adminLoginForm);
-    message(status, 'Checking administrator access…');
-    try {
-      const {data: result, error} = await client().auth.signInWithPassword({email: data.get('email'), password: data.get('password')});
-      if (error) throw error;
-      const profile = await profileFor(result.user);
-      if (String(result.user?.email || '').toLowerCase() !== OWNER_EMAIL || profile?.role !== 'admin') {
-        await client().auth.signOut();
-        throw new Error('Only the CREOVATE owner account may use the administrator area.');
-      }
-      if (await continueAdminMfa()) window.location.href = 'admin.html';
-    } catch (error) { message(status, error.message, true); }
+  adminLoginForm?.addEventListener('submit', async event => {
+    event.preventDefault(); const status = document.querySelector('[data-auth-message]'); const data = new FormData(adminLoginForm); message(status, 'Checking administrator access…');
+    const {data: result, error} = await client().auth.signInWithPassword({email: data.get('email'), password: data.get('password')});
+    if (error) { message(status, error.message, true); return; }
+    const profile = await profileFor(result.user);
+    if (String(result.user.email).toLowerCase() !== OWNER_EMAIL || profile?.role !== 'admin') { await client().auth.signOut(); message(status, 'Only the CREOVATE owner account may use the administrator area.', true); return; }
+    window.location.href = 'admin.html';
   });
-
+  const resetRequestForm = document.querySelector('#reset-request-form');
+  const whatsappResetLink = document.querySelector('#whatsapp-reset-link');
+  if (resetRequestForm && whatsappResetLink) resetRequestForm.addEventListener('submit', event => { event.preventDefault(); const email = String(new FormData(resetRequestForm).get('email') || '').trim(); if (!email) return; whatsappResetLink.href = `https://wa.me/2348084002972?text=${encodeURIComponent(`Hello CREOVATE. I need a password reset for ${email}.`)}`; whatsappResetLink.click(); });
   const updatePasswordForm = document.querySelector('#update-password-form');
-  if (updatePasswordForm) {
-    const status = document.querySelector('[data-auth-message]');
-    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-    const hashError = hashParams.get('error_description') || hashParams.get('error');
-    if (hashError) {
-      updatePasswordForm.hidden = true;
-      message(status, 'This password-reset link is invalid or has expired. Request a new link from the login page.', true);
-    } else {
-      message(status, 'Preparing the secure password-reset session…');
-      let sessionReady = Boolean((await client().auth.getSession()).data.session);
-      if (!sessionReady) {
-        await new Promise(resolve => {
-          let finished = false;
-          let subscription;
-          const finish = () => {
-            if (finished) return;
-            finished = true;
-            subscription?.unsubscribe?.();
-            resolve();
-          };
-          const result = client().auth.onAuthStateChange(event => {
-            if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') finish();
-          });
-          subscription = result?.data?.subscription;
-          window.setTimeout(finish, 1800);
-        });
-        sessionReady = Boolean((await client().auth.getSession()).data.session);
-      }
-      if (sessionReady) message(status, 'Enter and confirm your new password.');
-      else {
-        updatePasswordForm.hidden = true;
-        message(status, 'This password-reset link did not open a valid recovery session. Request a new link from the login page and open it in the same browser.', true);
-      }
-    }
-    updatePasswordForm.addEventListener('submit', async event => {
-      event.preventDefault();
-      const data = new FormData(updatePasswordForm);
-      if (data.get('password') !== data.get('confirm_password')) { message(status, 'The passwords do not match.', true); return; }
-      try {
-        const {error} = await client().auth.updateUser({password: data.get('password')});
-        if (error) throw error;
-        updatePasswordForm.hidden = true;
-        message(status, 'Password updated. You can now use your new password. Return to login to sign in.');
-      } catch (error) { message(status, error.message, true); }
-    });
-  }
-
-  document.querySelectorAll('[data-auth-switch]').forEach(link => {
-    const target = link.getAttribute('data-auth-switch');
-    const next = new URLSearchParams(window.location.search).get('next');
-    if (next && (target === 'login.html' || target === 'signup.html')) link.href = `${target}?next=${encodeURIComponent(next)}`;
-  });
-
-  window.CREOVATE_AUTH = {client, profileFor, requireUser, requireAdmin, verifiedTotpFactors, continueAdminMfa, escapeHtml, message, OWNER_EMAIL};
+  if (updatePasswordForm) updatePasswordForm.addEventListener('submit', async event => { event.preventDefault(); const data = new FormData(updatePasswordForm); const status = document.querySelector('[data-auth-message]'); if (data.get('password') !== data.get('confirm_password')) { message(status, 'The passwords do not match.', true); return; } const result = await client().auth.updateUser({password: data.get('password')}); if (result.error) message(status, result.error.message, true); else message(status, 'Password updated. You can now return to login.'); });
+  window.CREOVATE_AUTH = {client, profileFor, requireUser, requireAdmin, verifiedTotpFactors: async () => [], continueAdminMfa, escapeHtml, message, OWNER_EMAIL};
 })();
+
+

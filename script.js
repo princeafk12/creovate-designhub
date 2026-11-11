@@ -1,6 +1,4 @@
 (() => {
-  window.CREOVATE_SUPABASE_URL = window.CREOVATE_SUPABASE_URL || 'https://makiwckhhycpjhfqtail.supabase.co';
-  window.CREOVATE_SUPABASE_KEY = window.CREOVATE_SUPABASE_KEY || 'sb_publishable_hh6nQhgj140KaE0_IjykQw_Wm6oJj3c';
   const toggle = document.querySelector('.menu-toggle');
   const nav = document.querySelector('#site-nav');
   if (toggle && nav) {
@@ -142,9 +140,9 @@
   };
 
   const loadPublicSettings = async () => {
-    if (!window.supabase || !window.CREOVATE_SUPABASE_URL || !window.CREOVATE_SUPABASE_KEY) return;
+    if (!window.CREOVATE_AUTH) return;
     try {
-      const db = window.creovateSupabase || (window.creovateSupabase = window.supabase.createClient(window.CREOVATE_SUPABASE_URL, window.CREOVATE_SUPABASE_KEY));
+      const db = window.CREOVATE_AUTH.client();
       const [{data: settingsData}, {data: servicesData}] = await Promise.all([
         db.from('site_settings').select('*').eq('id', 1).maybeSingle(),
         db.from('services').select('*').order('name')
@@ -281,3 +279,5 @@
   }
   window.CREOVATE_MEMBER.setup(form, gate, result);
 })();
+
+

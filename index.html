@@ -128,10 +128,14 @@
   </main>
 
   <footer id="contact" class="site-footer"><div class="wrap footer-grid"><div><a class="logo" href="#top">CREOVATE <span>—</span><br>DesignHub</a><p data-content-text="footer_tagline">Premium design for businesses that want to look the part.</p><div class="contact-validator-note"><strong>Business plan validator</strong><p>The live validator is coming soon while we complete verification and safety checks.</p><a href="#validator">See the update</a></div></div><div><h2>Contact</h2><p>WhatsApp / phone: <a data-content-url="whatsapp_url" href="https://wa.me/2348084002972">08084002972</a><br>Email: <a data-content-email="contact_email" href="mailto:olanitealabij2023@gmail.com">olanitealabij2023@gmail.com</a></p><p><a data-content-url="x_url" href="https://x.com/creovate123" target="_blank" rel="noopener noreferrer">@creovate123</a> · <a data-content-url="instagram_url" href="https://instagram.com/creovatehq" target="_blank" rel="noopener noreferrer">@creovatehq</a><br>Facebook: <a data-content-url="facebook_url" href="https://web.facebook.com/creovatehq7" target="_blank" rel="noopener noreferrer">CREOVATE HQ</a> · YouTube: <a data-content-url="youtube_url" href="https://www.youtube.com/@creovatedigitalspace" target="_blank" rel="noopener noreferrer">CREOVATE Digital Space</a></p><p><a data-content-url="portfolio_url" href="https://drive.google.com/drive/folders/1Lfp6BQux8iWElEoBP7RST6SMnOsolIB3?usp=drive_link" target="_blank" rel="noopener noreferrer">Portfolio</a> · <a href="#policies">Terms &amp; Privacy</a></p></div></div><div class="wrap footer-bottom">© CREOVATE - DesignHub <span>No physical location is displayed.</span></div></footer>
-  <script src="supabase-config.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="firebase-config.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore-compat.js"></script>
   <script src="auth.js"></script>
   <script src="script.js"></script>
   <script>(async()=>{try{const user=await CREOVATE_AUTH.requireUser('index.html');if(user){document.documentElement.classList.remove('auth-pending');document.documentElement.classList.add('signed-in');const link=document.querySelector('#auth-nav-link');if(link){link.textContent='My account';link.href='account.html';}}}catch(error){window.location.href='signup.html?next=index.html';}})();</script>
 </body>
 </html>
+
+

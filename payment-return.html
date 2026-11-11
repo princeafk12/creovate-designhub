@@ -20,8 +20,12 @@
     </section>
   </main>
 </body>
-<script src="supabase-config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="firebase-config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore-compat.js"></script>
 <script src="auth.js"></script>
 <script>(async()=>{try{const user=await CREOVATE_AUTH.requireUser('payment-return.html');if(user)document.documentElement.classList.remove('auth-pending');}catch(error){window.location.href='signup.html?next=payment-return.html';}})();</script>
 </html>
+
+
