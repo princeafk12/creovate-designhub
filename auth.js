@@ -141,6 +141,11 @@
     if (!profile || profile.role !== 'admin' || String(user.email).toLowerCase() !== OWNER_EMAIL) {
       await client().auth.signOut(); window.location.href = 'admin-login.html?error=admin'; return null;
     }
+    const token = await firebaseAuth.currentUser.getIdTokenResult();
+    const secondFactor = token.claims?.firebase?.sign_in_second_factor;
+    if (secondFactor !== 'totp') {
+      window.location.href = 'admin-login.html?mfa=required'; return null;
+    }
     return {user, profile};
   };
 
@@ -150,7 +155,7 @@
     event.preventDefault(); const status = document.querySelector('[data-auth-message]'); const data = new FormData(loginForm); message(status, 'Signing you in…');
     const {data: result, error} = await client().auth.signInWithPassword({email: data.get('email'), password: data.get('password')});
     if (error) { message(status, error.message, true); return; }
-    const profile = await profileFor(result.user); window.location.href = profile?.role === 'admin' ? 'admin.html' : requestedNext('account.html');
+    const profile = await profileFor(result.user); window.location.href = profile?.role === 'admin' ? 'admin-login.html' : requestedNext('account.html');
   });
   const signupForm = document.querySelector('#signup-form');
   signupForm?.addEventListener('submit', async event => {
@@ -161,7 +166,7 @@
     if (result.session) window.location.href = requestedNext('account.html'); else message(status, 'Account created. You can now log in.');
   });
   const adminLoginForm = document.querySelector('#admin-login-form');
-  adminLoginForm?.addEventListener('submit', async event => {
+  if (adminLoginForm && !document.body.dataset.mfaAdmin) adminLoginForm.addEventListener('submit', async event => {
     event.preventDefault(); const status = document.querySelector('[data-auth-message]'); const data = new FormData(adminLoginForm); message(status, 'Checking administrator access…');
     const {data: result, error} = await client().auth.signInWithPassword({email: data.get('email'), password: data.get('password')});
     if (error) { message(status, error.message, true); return; }
