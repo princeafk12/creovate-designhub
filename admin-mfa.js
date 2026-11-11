@@ -1,4 +1,4 @@
-import { getAuth, getMultiFactorResolver, sendEmailVerification, signInWithEmailAndPassword, signOut, TotpMultiFactorGenerator } from 'https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js';
+import { getAuth, getMultiFactorResolver, multiFactor, sendEmailVerification, signInWithEmailAndPassword, signOut, TotpMultiFactorGenerator } from 'https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js';
 
 (() => {
   const OWNER_EMAIL = 'olanitealabij2023@gmail.com';
@@ -53,7 +53,7 @@ import { getAuth, getMultiFactorResolver, sendEmailVerification, signInWithEmail
         message('Verify the owner email using the Firebase message, then return here and sign in again.', true);
         return;
       }
-      if (!user.multiFactor.enrolledFactors.length) {
+      if (!multiFactor(user).enrolledFactors.length) {
         window.location.href = 'mfa.html?mode=enroll&next=admin.html';
         return;
       }

@@ -36,7 +36,7 @@ import { getAuth, multiFactor, reauthenticateWithCredential, EmailAuthProvider, 
     message('Verify the owner email first, then return to administrator login.', true);
     startForm.hidden = true;
   }
-  if (user.multiFactor.enrolledFactors.length) {
+  if (multiFactor(user).enrolledFactors.length) {
     message('An authenticator is already enrolled. Return to administrator login.');
     startForm.hidden = true;
   }
