@@ -1,6 +1,6 @@
-import { getAuth, multiFactor, reauthenticateWithCredential, EmailAuthProvider, TotpMultiFactorGenerator } from 'https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js';
+import { getAuth, multiFactor, onAuthStateChanged, reauthenticateWithCredential, EmailAuthProvider, TotpMultiFactorGenerator } from 'https://www.gstatic.com/firebasejs/13.2.0/firebase-auth.js';
 
-(() => {
+(async () => {
   const OWNER_EMAIL = 'olanitealabij2023@gmail.com';
   const config = window.CREOVATE_FIREBASE_CONFIG;
   const status = document.querySelector('#mfa-status');
@@ -27,7 +27,13 @@ import { getAuth, multiFactor, reauthenticateWithCredential, EmailAuthProvider, 
     return;
   }
 
-  const user = auth.currentUser;
+  const user = await new Promise(resolve => {
+    let unsubscribe = () => {};
+    unsubscribe = onAuthStateChanged(auth, currentUser => {
+      unsubscribe();
+      resolve(currentUser);
+    });
+  });
   if (!user || String(user.email || '').toLowerCase() !== OWNER_EMAIL) {
     window.location.href = 'admin-login.html';
     return;
