@@ -41,12 +41,14 @@
       try {
         const collection = firestore.collection(this.collection);
         let query = collection;
-        for (const [field, value] of this.filters) {
+        const whereFilters = this.filters.filter(([field]) => field !== 'id');
+        for (const [field, value] of whereFilters) {
           if (field === 'id') continue;
           query = query.where(field, '==', value);
         }
-        if (this.sort) query = query.orderBy(this.sort[0], this.sort[1] ? 'asc' : 'desc');
-        if (this.max) query = query.limit(this.max);
+        const canUseFirestoreSort = Boolean(this.sort && whereFilters.length === 0);
+        if (canUseFirestoreSort) query = query.orderBy(this.sort[0], this.sort[1] ? 'asc' : 'desc');
+        if (this.max && canUseFirestoreSort) query = query.limit(this.max);
         if (this.updateData) {
           const snapshot = await query.get();
           const writes = snapshot.docs.map(doc => doc.ref.update(this.updateData));
@@ -64,6 +66,16 @@
           const names = this.fields.split(',').map(field => field.trim());
           data = data.map(item => Object.fromEntries(names.filter(name => name in item).map(name => [name, item[name]])));
         }
+        if (this.sort && !canUseFirestoreSort) {
+          const [field, ascending] = this.sort;
+          data.sort((left, right) => {
+            const a = left[field] ?? '';
+            const b = right[field] ?? '';
+            const result = a < b ? -1 : a > b ? 1 : 0;
+            return ascending ? result : -result;
+          });
+        }
+        if (this.max && !canUseFirestoreSort) data = data.slice(0, this.max);
         return {data: this.single ? (data[0] || null) : data, error: null};
       } catch (error) { return {data: null, error: statusFor(error)}; }
     }
