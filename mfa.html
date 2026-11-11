@@ -2,13 +2,18 @@
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Secure admin access | CREOVATE DesignHub</title><link rel="stylesheet" href="styles.css"></head>
 <body class="auth-page">
+  <script>
+    if (new URLSearchParams(location.search).has('password')) {
+      history.replaceState(null, document.title, 'mfa.html');
+    }
+  </script>
   <main class="auth-shell wrap">
     <div class="logo auth-logo" aria-label="CREOVATE DesignHub">CREOVATE <span>—</span><br>DesignHub</div>
     <section class="auth-card mfa-card">
       <p class="eyebrow eyebrow-dark">Authenticator security</p>
       <h1>Secure the admin account.</h1>
       <p id="mfa-intro">Add CREOVATE DesignHub to Google Authenticator, Microsoft Authenticator, or another compatible TOTP app.</p>
-      <form id="mfa-start-form" class="auth-form">
+      <form id="mfa-start-form" class="auth-form" method="post" action="mfa.html">
         <label>Owner password<input name="password" type="password" autocomplete="current-password" required></label>
         <button class="button button-dark" type="submit">Generate setup code</button>
       </form>
@@ -16,7 +21,7 @@
         <canvas id="mfa-qr" class="mfa-qr" aria-label="Authenticator setup QR code"></canvas>
         <p class="mfa-secret-label">If scanning does not work, enter this setup key manually:</p>
         <code id="mfa-secret" class="mfa-secret"></code>
-        <form id="mfa-verify-form" class="auth-form">
+        <form id="mfa-verify-form" class="auth-form" method="post" action="mfa.html">
           <label>Authenticator code<input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
           <button class="button button-dark" type="submit">Confirm authenticator</button>
         </form>
