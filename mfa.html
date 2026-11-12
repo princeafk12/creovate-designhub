@@ -18,7 +18,7 @@
         <button class="button button-dark" type="submit">Generate setup code</button>
       </form>
       <div id="mfa-enrollment" class="mfa-enrollment" hidden>
-        <canvas id="mfa-qr" class="mfa-qr" aria-label="Authenticator setup QR code"></canvas>
+        <div id="mfa-qr" class="mfa-qr" role="img" aria-label="Authenticator setup QR code"></div>
         <p class="mfa-secret-label">If scanning does not work, enter this setup key manually:</p>
         <code id="mfa-secret" class="mfa-secret"></code>
         <form id="mfa-verify-form" class="auth-form" method="post" action="mfa.html">
@@ -35,7 +35,7 @@
   <script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore-compat.js"></script>
   <script src="auth.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/lib/browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <script type="module" src="mfa.js"></script>
 </body>
 </html>

@@ -56,8 +56,16 @@ import { getAuth, multiFactor, onAuthStateChanged, reauthenticateWithCredential,
       const session = await multiFactor(user).getSession();
       totpSecret = await TotpMultiFactorGenerator.generateSecret(session);
       const uri = totpSecret.generateQrCodeUrl(user.email, 'CREOVATE DesignHub');
-      if (!window.QRCode?.toCanvas) throw new Error('The QR-code library did not load. Refresh and try again.');
-      await window.QRCode.toCanvas(qrCanvas, uri, {width: 240, margin: 2});
+      if (typeof window.QRCode !== 'function') throw new Error('The QR-code library did not load. Refresh and try again.');
+      qrCanvas.replaceChildren();
+      new window.QRCode(qrCanvas, {
+        text: uri,
+        width: 240,
+        height: 240,
+        colorDark: '#241047',
+        colorLight: '#ffffff',
+        correctLevel: window.QRCode.CorrectLevel.M
+      });
       secretBox.textContent = totpSecret.secretKey;
       enrollment.hidden = false;
       startForm.hidden = true;
