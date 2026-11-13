@@ -156,7 +156,7 @@
     if (result.session) window.location.href = requestedNext('account.html'); else message(status, 'Account created. You can now log in.');
   });
   const adminLoginForm = document.querySelector('#admin-login-form');
-  if (adminLoginForm && !document.body.dataset.securityAdmin) adminLoginForm.addEventListener('submit', async event => {
+  if (adminLoginForm && !('securityAdmin' in document.body.dataset)) adminLoginForm.addEventListener('submit', async event => {
     event.preventDefault(); const status = document.querySelector('[data-auth-message]'); const data = new FormData(adminLoginForm); message(status, 'Checking administrator access…');
     const {data: result, error} = await client().auth.signInWithPassword({email: data.get('email'), password: data.get('password')});
     if (error) { message(status, error.message, true); return; }
