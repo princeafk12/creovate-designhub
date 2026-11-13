@@ -1,7 +1,75 @@
 <!doctype html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin login | CREOVATE DesignHub</title><link rel="stylesheet" href="styles.css"></head>
-<body class="auth-page" data-mfa-admin><main class="auth-shell wrap"><div class="logo auth-logo" aria-label="CREOVATE DesignHub">CREOVATE <span>—</span><br>DesignHub</div><section class="auth-card admin-card"><p class="eyebrow eyebrow-dark">Restricted area</p><h1>Administrator login.</h1><p>Owner access requires your password and Google Authenticator code.</p><form id="admin-login-form" class="auth-form"><label>Email address<input name="email" type="email" autocomplete="username" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label><button class="button button-dark" type="submit">Continue</button></form><section id="admin-mfa-challenge" class="mfa-challenge" hidden><h2>Enter your authenticator code.</h2><p>Open Google Authenticator or Microsoft Authenticator and enter the current six-digit code.</p><form id="admin-mfa-form" class="auth-form"><label>Authenticator code<input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label><button class="button button-dark" type="submit">Verify and enter admin</button></form></section><p data-auth-message class="form-status" role="status" aria-live="polite"></p><p><a href="login.html">Client login</a></p></section></main><script src="firebase-config.js"></script><script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore-compat.js"></script><script src="auth.js"></script><script type="module" src="admin-mfa.js"></script><script>const adminParams=new URLSearchParams(location.search);const adminNotice=adminParams.get('enrolled')?'Authenticator enrolled. Sign in again with your six-digit code.':adminParams.get('mfa')==='required'?'Authenticator verification is required for admin access.':adminParams.get('error')==='admin'?'That account does not have administrator access.':'';if(adminNotice)CREOVATE_AUTH.message(document.querySelector('[data-auth-message]'),adminNotice,adminParams.get('error')==='admin');</script></body>
+<body class="auth-page" data-security-admin>
+  <main class="auth-shell wrap">
+    <div class="logo auth-logo" aria-label="CREOVATE DesignHub">CREOVATE <span>—</span><br>DesignHub</div>
+    <section class="auth-card admin-card">
+      <p class="eyebrow eyebrow-dark">Restricted area</p>
+      <h1>Administrator login.</h1>
+      <p>Owner access requires your password and two private security answers.</p>
+      <form id="admin-login-form" class="auth-form">
+        <label>Email address<input name="email" type="email" autocomplete="username" required></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+        <button class="button button-dark" type="submit">Continue</button>
+      </form>
+      <section id="admin-security-setup" class="security-question-panel" hidden>
+        <h2>Set your security questions.</h2>
+        <p>Choose two questions and answers only you will know. Answers are stored as one-way hashes.</p>
+        <form id="admin-security-setup-form" class="auth-form">
+          <label>Security question 1
+            <select name="question1" required>
+              <option value="">Choose a question</option>
+              <option value="school">What was the name of your first school?</option>
+              <option value="city">In what city were you born?</option>
+              <option value="nickname">What was your childhood nickname?</option>
+              <option value="pet">What was the name of your first pet?</option>
+              <option value="business">What was the first business you started?</option>
+            </select>
+          </label>
+          <label>Answer 1<input name="answer1" type="text" autocomplete="off" required></label>
+          <label>Security question 2
+            <select name="question2" required>
+              <option value="">Choose a question</option>
+              <option value="school">What was the name of your first school?</option>
+              <option value="city">In what city were you born?</option>
+              <option value="nickname">What was your childhood nickname?</option>
+              <option value="pet">What was the name of your first pet?</option>
+              <option value="business">What was the first business you started?</option>
+            </select>
+          </label>
+          <label>Answer 2<input name="answer2" type="text" autocomplete="off" required></label>
+          <button class="button button-dark" type="submit">Save security questions</button>
+        </form>
+      </section>
+      <section id="admin-security-challenge" class="security-question-panel" hidden>
+        <h2>Answer your security questions.</h2>
+        <form id="admin-security-challenge-form" class="auth-form">
+          <label><span id="security-question-1"></span><input name="answer1" type="text" autocomplete="off" required></label>
+          <label><span id="security-question-2"></span><input name="answer2" type="text" autocomplete="off" required></label>
+          <button class="button button-dark" type="submit">Verify and enter admin</button>
+        </form>
+      </section>
+      <p data-auth-message class="form-status" role="status" aria-live="polite"></p>
+      <p><a href="login.html">Client login</a></p>
+    </section>
+  </main>
+  <script src="firebase-config.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore-compat.js"></script>
+  <script src="auth.js"></script>
+  <script type="module" src="admin-security.js"></script>
+  <script>
+    const adminParams = new URLSearchParams(location.search);
+    const adminNotice = adminParams.get('security') === 'ready'
+      ? 'Security questions saved. Sign in again and answer them.'
+      : adminParams.get('error') === 'admin'
+        ? 'That account does not have administrator access.'
+        : '';
+    if (adminNotice) CREOVATE_AUTH.message(document.querySelector('[data-auth-message]'), adminNotice, false);
+  </script>
+</body>
 </html>
 
 

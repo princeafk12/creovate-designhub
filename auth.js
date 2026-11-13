@@ -104,10 +104,6 @@
         const unsubscribe = firebaseAuth.onAuthStateChanged(async user => callback(user ? 'SIGNED_IN' : 'SIGNED_OUT', await sessionFor(user)));
         return {data: {subscription: {unsubscribe}}};
       },
-      mfa: {
-        listFactors: async () => ({data: {totp: []}, error: null}),
-        getAuthenticatorAssuranceLevel: async () => ({data: {currentLevel: 'aal2'}, error: null})
-      }
     }
   });
   const client = () => {
@@ -133,18 +129,12 @@
     if (!user) { window.location.href = `signup.html${next ? `?next=${encodeURIComponent(next)}` : ''}`; return null; }
     return normalizeUser(user);
   };
-  const continueAdminMfa = async () => true;
   const requireAdmin = async () => {
     const user = await requireUser();
     if (!user) return null;
     const profile = await profileFor(user);
     if (!profile || profile.role !== 'admin' || String(user.email).toLowerCase() !== OWNER_EMAIL) {
       await client().auth.signOut(); window.location.href = 'admin-login.html?error=admin'; return null;
-    }
-    const token = await firebaseAuth.currentUser.getIdTokenResult();
-    const secondFactor = token.claims?.firebase?.sign_in_second_factor;
-    if (secondFactor !== 'totp') {
-      window.location.href = 'admin-login.html?mfa=required'; return null;
     }
     return {user, profile};
   };
@@ -166,7 +156,7 @@
     if (result.session) window.location.href = requestedNext('account.html'); else message(status, 'Account created. You can now log in.');
   });
   const adminLoginForm = document.querySelector('#admin-login-form');
-  if (adminLoginForm && !document.body.dataset.mfaAdmin) adminLoginForm.addEventListener('submit', async event => {
+  if (adminLoginForm && !document.body.dataset.securityAdmin) adminLoginForm.addEventListener('submit', async event => {
     event.preventDefault(); const status = document.querySelector('[data-auth-message]'); const data = new FormData(adminLoginForm); message(status, 'Checking administrator access…');
     const {data: result, error} = await client().auth.signInWithPassword({email: data.get('email'), password: data.get('password')});
     if (error) { message(status, error.message, true); return; }
@@ -199,7 +189,7 @@
     });
     wrapper.appendChild(toggle);
   });
-  window.CREOVATE_AUTH = {client, profileFor, requireUser, requireAdmin, verifiedTotpFactors: async () => [], continueAdminMfa, escapeHtml, message, OWNER_EMAIL};
+  window.CREOVATE_AUTH = {client, profileFor, requireUser, requireAdmin, escapeHtml, message, OWNER_EMAIL};
 })();
 
 
