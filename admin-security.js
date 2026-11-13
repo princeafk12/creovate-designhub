@@ -5,6 +5,7 @@ import { getAuth, signInWithEmailAndPassword, signOut } from 'https://www.gstati
   const config = window.CREOVATE_FIREBASE_CONFIG;
   const status = document.querySelector('[data-auth-message]');
   const loginForm = document.querySelector('#admin-login-form');
+  const resetButton = document.querySelector('#reset-security-questions');
   const setupSection = document.querySelector('#admin-security-setup');
   const setupForm = document.querySelector('#admin-security-setup-form');
   const challengeSection = document.querySelector('#admin-security-challenge');
@@ -96,6 +97,31 @@ import { getAuth, signInWithEmailAndPassword, signOut } from 'https://www.gstati
         return;
       }
       message(error.message || 'Administrator login failed.', true);
+    }
+  });
+
+  resetButton?.addEventListener('click', async () => {
+    const data = new FormData(loginForm);
+    const email = String(data.get('email') || '').trim().toLowerCase();
+    const password = String(data.get('password') || '');
+    if (email !== OWNER_EMAIL || !password) { message('Enter the owner email and password first, then choose reset.', true); return; }
+    if (!window.confirm('Reset only the saved security questions so you can choose new ones?')) return;
+    resetButton.disabled = true;
+    message('Verifying the owner account and resetting security questions…');
+    try {
+      const credential = await signInWithEmailAndPassword(auth, email, password);
+      if (!ownerOnly(credential.user)) throw new Error('Only the CREOVATE owner may reset these questions.');
+      await profileStore().collection('profiles').doc(credential.user.uid).set({security_questions: firebase.firestore.FieldValue.delete()}, {merge: true});
+      await signOut(auth);
+      loginForm.reset();
+      show(setupSection, false);
+      show(challengeSection, false);
+      show(loginForm, true);
+      message('Security questions reset. Sign in again to choose new ones.');
+    } catch (error) {
+      message(error.message || 'The security questions could not be reset.', true);
+    } finally {
+      resetButton.disabled = false;
     }
   });
 
