@@ -85,7 +85,7 @@
   const compatClient = () => ({
     from: collection => new QueryBuilder(collection),
     auth: {
-      getSession: async () => ({data: {session: await sessionFor(firebaseAuth.currentUser)}, error: null}),
+      getSession: async () => ({data: {session: await sessionFor(firebaseAuth.currentUser || await ready)}, error: null}),
       signInWithPassword: async ({email, password}) => {
         try { const result = await firebaseAuth.signInWithEmailAndPassword(email, password); return {data: {user: normalizeUser(result.user)}, error: null}; }
         catch (error) { return {data: null, error: statusFor(error)}; }
