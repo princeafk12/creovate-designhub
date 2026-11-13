@@ -1,1 +1,3 @@
 /admin-login.html /admin-login 200
+/mfa /admin-login 302
+/mfa.html /admin-login 302
