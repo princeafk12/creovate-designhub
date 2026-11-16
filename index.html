@@ -37,6 +37,7 @@
       <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
       <nav id="site-nav" class="site-nav" aria-label="Main navigation">
         <a href="#services">Services</a>
+        <a href="#business-tools">Business Tools</a>
         <a href="#brief">Send a brief</a>
         <a href="#work">Portfolio</a>
         <a href="#how">How it works</a>
@@ -89,6 +90,48 @@
       </div>
     </section>
 
+    <section id="business-tools" class="section tools-section" aria-labelledby="business-tools-title">
+      <div class="wrap">
+        <div class="tools-intro">
+          <div>
+            <p class="eyebrow eyebrow-dark">CREOVATE Business Tools</p>
+            <h2 id="business-tools-title">Turn your next idea into a usable plan.</h2>
+            <p class="section-intro">Simple digital tools for business owners, creators and growing brands. Promo Studio is the first tool being prepared for launch; the other tools will follow after its workflow is tested.</p>
+          </div>
+          <div class="tools-note"><strong>Built for practical use.</strong><span>One clear input form, one organised deliverable, saved to your customer account.</span></div>
+        </div>
+        <div class="tool-grid">
+          <article class="tool-card tool-card-featured">
+            <div class="tool-card-top"><span class="tool-number">01</span><span class="tool-status tool-status-preparing">Preparing for launch</span></div>
+            <h3>Promo Studio</h3>
+            <p>Create a complete promotional campaign package for a product, service, sale, announcement or lead-generation campaign.</p>
+            <div class="tool-price">₦1,000 <span>per generation</span></div>
+            <ul class="tool-deliverables"><li>Campaign strategy and audience angle</li><li>Promotional copy for WhatsApp, Instagram, Facebook and X</li><li>Headlines, calls to action, hashtags and design direction</li></ul>
+            <form id="promo-studio-form" class="tool-form" novalidate>
+              <div class="form-grid">
+                <label class="form-field">Business name<input name="business_name" type="text" maxlength="100" required></label>
+                <label class="form-field">Business category<input name="business_category" type="text" maxlength="100" placeholder="For example: fashion, food, education" required></label>
+                <label class="form-field form-field-full">Product or service being promoted<textarea name="offer" rows="3" maxlength="500" required></textarea></label>
+                <label class="form-field">Campaign category<select name="campaign_category" required><option value="" selected disabled>Choose one</option><option>Product promotion</option><option>Service promotion</option><option>Sales and discounts</option><option>Business announcement</option><option>Lead generation</option></select></label>
+                <label class="form-field">Target audience<input name="target_audience" type="text" maxlength="240" required></label>
+                <label class="form-field form-field-full">Main offer or selling point<textarea name="selling_point" rows="3" maxlength="500" required></textarea></label>
+                <label class="form-field">Price, if relevant<input name="price" type="text" maxlength="80" placeholder="Optional"></label>
+                <label class="form-field">Campaign objective<input name="objective" type="text" maxlength="240" placeholder="For example: get more WhatsApp enquiries" required></label>
+                <label class="form-field">Contact information<input name="contact" type="text" maxlength="240" placeholder="Optional"></label>
+                <label class="form-field">Preferred tone<select name="tone" required><option>Clear and professional</option><option>Friendly and conversational</option><option>Bold and energetic</option><option>Premium and polished</option><option>Warm and community-focused</option></select></label>
+                <label class="form-field form-field-full">Preferred platforms<input name="platforms" type="text" maxlength="240" placeholder="For example: WhatsApp, Instagram and Facebook" required></label>
+              </div>
+              <div class="tool-actions"><button class="button button-dark" type="submit">Prepare my campaign brief</button><p class="form-note">Generation and payment are not enabled yet. This form is the first tested interface milestone; no charge will be made.</p></div>
+              <p id="promo-studio-status" class="form-status" role="status" aria-live="polite"></p>
+            </form>
+          </article>
+          <article class="tool-card tool-card-muted"><div class="tool-card-top"><span class="tool-number">02</span><span class="tool-status">Next stage</span></div><h3>Caption Studio</h3><p>Five caption variations, hooks, hashtags, calls to action and short and long versions for your chosen platform.</p><div class="tool-price">₦1,000 <span>proposed</span></div><span class="tool-disabled">Available after Promo Studio testing</span></article>
+          <article class="tool-card tool-card-muted"><div class="tool-card-top"><span class="tool-number">03</span><span class="tool-status">Next stage</span></div><h3>30-Day Content Planner</h3><p>A practical monthly calendar with daily topics, formats, caption starters, themes and calls to action.</p><div class="tool-price">₦1,500 <span>proposed</span></div><span class="tool-disabled">Available after Promo Studio testing</span></article>
+          <article class="tool-card tool-card-muted"><div class="tool-card-top"><span class="tool-number">04</span><span class="tool-status">Next stage</span></div><h3>Business Growth Kit</h3><p>Positioning, customer profile, differentiation, marketing opportunities and a focused seven-day action plan.</p><div class="tool-price">₦3,000 <span>proposed</span></div><span class="tool-disabled">Available after Promo Studio testing</span></article>
+        </div>
+      </div>
+    </section>
+
     <section id="brief" class="section section-light brief-section">
       <div class="wrap narrow brief-wrap">
         <p class="eyebrow eyebrow-dark">Start your order</p>
@@ -134,6 +177,7 @@
   <script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore-compat.js"></script>
   <script src="auth.js"></script>
   <script src="script.js"></script>
+  <script src="business-tools.js"></script>
   <script>(async()=>{try{const user=await CREOVATE_AUTH.requireUser('index.html');if(user){document.documentElement.classList.remove('auth-pending');document.documentElement.classList.add('signed-in');const link=document.querySelector('#auth-nav-link');if(link){link.textContent='My account';link.href='account.html';}}}catch(error){window.location.href='signup.html?next=index.html';}})();</script>
 </body>
 </html>

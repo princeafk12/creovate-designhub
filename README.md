@@ -1,6 +1,6 @@
 # CREOVATE - DesignHub
 
-This is the CREOVATE DesignHub site foundation. It contains the login-first customer experience, service details, WhatsApp brief handoff, server-side checkout/webhook/validator function routes, portfolio links, saved orders and reports, and an owner-only admin area for offer, service, public content, customer review, and customer password support.
+This is the CREOVATE Digital Space site foundation. It contains the login-first customer experience, design services, WhatsApp brief handoff, portfolio links, saved account views, an owner-only admin area, and the first Business Tools interface milestone: Promo Studio.
 
 ## Before publishing
 
@@ -8,9 +8,9 @@ The current public address is `https://creovate-designhub.pages.dev/`. This free
 
 ## Remaining setup
 
-Run `schema.sql` once in the Supabase SQL Editor. If the database already exists, run `mfa-migration.sql`, `phase-3-4-migration.sql`, and `phase-5-admin-content-password-migration.sql` too. Then create the owner account through `login.html`, promote only `olanitealabij2023@gmail.com` with the SQL comment at the bottom of the schema, and enrol an authenticator app from `admin-login.html`. The server function routes require the environment variables documented in `.dev.vars.example`.
+The browser-facing build currently uses Firebase Authentication and Firestore. Enable Email/Password in Firebase Authentication, create Firestore, publish `firebase.rules`, and keep `olanitealabij2023@gmail.com` as the only owner account. The admin area uses two security questions; the old authenticator routes redirect to `/admin-login`. The Cloudflare server functions are still on the older Supabase backend and must be migrated or deliberately configured before checkout, webhooks, validator requests, or server-side password reset are treated as live.
 
-The default site route, service catalog, brief form, account, and admin area require an authenticated customer session. The server checkout endpoint creates the order and Flutterwave payment link. The webhook re-verifies the transaction before marking it paid. The live business validator is currently marked Coming Soon and its server endpoint is intentionally disabled until a provider, source verification, safety checks, and spending controls are completed. Never place server secrets in frontend files. The login recovery link opens a WhatsApp request to `08084002972`; the owner resets customer passwords from the admin panel through the server-only Supabase service key.
+The default site route, service catalogue, Business Tools section, brief form, account, and admin area require an authenticated customer session. Promo Studio is currently an interface-only milestone: it does not charge, call an AI provider, or claim to generate a result. The live business validator is marked Coming Soon. Never place server secrets in frontend files. The login recovery link opens a WhatsApp request to `08084002972`.
 
 ## Publish with Cloudflare Pages
 
@@ -20,4 +20,4 @@ The default site route, service catalog, brief form, account, and admin area req
 4. Deploy and use the assigned `*.pages.dev` address while you do not have a custom domain.
 5. Submit `https://creovate-designhub.pages.dev/sitemap.xml` in Google Search Console and Bing Webmaster Tools. Search engines may take time to list a new site; publication is live immediately, but indexing is not guaranteed or instant.
 
-Cloudflare Pages Functions are discovered from the `functions/` folder. Configure the webhook URL as `/api/flutterwave/webhook`, add `SUPABASE_SERVICE_ROLE_KEY` to the Cloudflare secret store for owner password resets, and keep the account in test mode until all acceptance tests pass.
+Cloudflare Pages Functions are discovered from the `functions/` folder. The existing function source expects Supabase and Flutterwave variables listed in `.dev.vars.example`; do not activate it until the backend choice is made consistent with the Firebase browser data. Keep all payment activity in test mode until the full payment and generation acceptance tests pass.
