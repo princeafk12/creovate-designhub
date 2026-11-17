@@ -8,7 +8,7 @@ The current public address is `https://creovate-designhub.pages.dev/`. This free
 
 ## Remaining setup
 
-The browser-facing build currently uses Firebase Authentication and Firestore. Enable Email/Password in Firebase Authentication, create Firestore, publish `firebase.rules`, and keep `olanitealabij2023@gmail.com` as the only owner account. The admin area uses two security questions; the old authenticator routes redirect to `/admin-login`. The Cloudflare server functions are still on the older Supabase backend and must be migrated or deliberately configured before checkout, webhooks, validator requests, or server-side password reset are treated as live.
+The browser-facing build uses Firebase Authentication and Firestore. Enable Email/Password in Firebase Authentication, create Firestore, publish `firebase.rules`, and keep `olanitealabij2023@gmail.com` as the only owner account. The admin area uses two security questions; the old authenticator routes redirect to `/admin-login`. The checkout and Flutterwave webhook functions now use Firebase; the legacy Supabase-only password-reset function remains a separate migration item.
 
 The default site route, service catalogue, Business Tools section, brief form, account, and admin area require an authenticated customer session. Promo Studio now has a fail-closed server generation path, but it remains disabled until the owner completes `PROMO-STUDIO-SETUP.md`, configures the provider secrets, and finishes payment testing. It does not charge while disabled. The live business validator is marked Coming Soon. Never place server secrets in frontend files. The login recovery link opens a WhatsApp request to `08084002972`.
 
@@ -20,4 +20,4 @@ The default site route, service catalogue, Business Tools section, brief form, a
 4. Deploy and use the assigned `*.pages.dev` address while you do not have a custom domain.
 5. Submit `https://creovate-designhub.pages.dev/sitemap.xml` in Google Search Console and Bing Webmaster Tools. Search engines may take time to list a new site; publication is live immediately, but indexing is not guaranteed or instant.
 
-Cloudflare Pages Functions are discovered from the `functions/` folder. The existing function source expects Supabase and Flutterwave variables listed in `.dev.vars.example`; do not activate it until the backend choice is made consistent with the Firebase browser data. Keep all payment activity in test mode until the full payment and generation acceptance tests pass.
+Cloudflare Pages Functions are discovered from the `functions/` folder. The checkout expects the Flutterwave variables listed in `.dev.vars.example`; keep `PAYMENTS_READY=false` until the test checkout, webhook, transaction-verification, duplicate-event, and account/admin acceptance tests pass. Keep all payment activity in test mode until those tests pass.

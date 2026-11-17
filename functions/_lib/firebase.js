@@ -77,6 +77,17 @@ const fromFirestoreValue = value => {
 };
 
 const firestoreUrl = (env, collection, documentId) => `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(env.FIREBASE_PROJECT_ID || 'creovate-designhub')}/databases/(default)/documents/${collection}/${encodeURIComponent(documentId)}`;
+const firestoreCollectionUrl = env => `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(env.FIREBASE_PROJECT_ID || 'creovate-designhub')}/databases/(default)/documents:runQuery`;
+
+const firestoreFilterValue = value => firestoreValue(value);
+const firestoreFilter = ([field, value]) => ({fieldFilter: {field: {fieldPath: field}, op: 'EQUAL', value: firestoreFilterValue(value)}});
+
+function documentFromFirestore(document) {
+  if (!document) return null;
+  const name = String(document.name || '');
+  const id = name.split('/').pop() || undefined;
+  return {id, ...Object.fromEntries(Object.entries(document.fields || {}).map(([key, value]) => [key, fromFirestoreValue(value)]))};
+}
 
 export async function firestoreAdminGet({env, collection, documentId}) {
   const response = await fetch(firestoreUrl(env, collection, documentId), {headers: {authorization: `Bearer ${await adminAccessToken(env)}`}});
@@ -86,9 +97,62 @@ export async function firestoreAdminGet({env, collection, documentId}) {
   return Object.fromEntries(Object.entries(body.fields || {}).map(([key, value]) => [key, fromFirestoreValue(value)]));
 }
 
+export async function firestoreAdminQuery({env, collection, where = [], limit = 20}) {
+  const structuredQuery = {from: [{collectionId: collection}], limit};
+  if (where.length === 1) structuredQuery.where = firestoreFilter(where[0]);
+  if (where.length > 1) structuredQuery.where = {compositeFilter: {op: 'AND', filters: where.map(firestoreFilter)}};
+  const response = await fetch(firestoreCollectionUrl(env), {
+    method: 'POST',
+    headers: {'content-type': 'application/json', authorization: `Bearer ${await adminAccessToken(env)}`},
+    body: JSON.stringify({structuredQuery})
+  });
+  const body = await response.json().catch(() => []);
+  if (!response.ok) throw new Error(body.error?.message || `Firestore query failed (${response.status}).`);
+  return (Array.isArray(body) ? body : []).map(item => documentFromFirestore(item.document)).filter(Boolean);
+}
+
 export async function firestoreAdminWrite({env, collection, documentId, fields}) {
   const response = await fetch(firestoreUrl(env, collection, documentId), {method: 'PATCH', headers: {'content-type': 'application/json', authorization: `Bearer ${await adminAccessToken(env)}`}, body: JSON.stringify({fields: Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, firestoreValue(value)]))})});
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.error?.message || `Firestore write failed (${response.status}).`);
   return body;
+}
+
+export async function firestoreAdminCreate({env, collection, documentId, fields}) {
+  const response = await fetch(firestoreUrl(env, collection, documentId), {
+    method: 'PATCH',
+    headers: {'content-type': 'application/json', authorization: `Bearer ${await adminAccessToken(env)}`},
+    body: JSON.stringify({
+      fields: Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, firestoreValue(value)])),
+      currentDocument: {exists: false}
+    })
+  });
+  const body = await response.json().catch(() => ({}));
+  if (response.ok) return {created: true, body};
+  const firestoreStatus = body.error?.status || '';
+  if (response.status === 409 || response.status === 412 || firestoreStatus === 'FAILED_PRECONDITION') return {created: false, body};
+  throw new Error(body.error?.message || `Firestore create failed (${response.status}).`);
+}
+
+export async function sendEmail(env, {to, subject, html, text, idempotencyKey}) {
+  if (!env.RESEND_API_KEY || !env.EMAIL_FROM) return {skipped: true};
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${env.RESEND_API_KEY}`,
+      'content-type': 'application/json',
+      ...(idempotencyKey ? {'idempotency-key': idempotencyKey} : {})
+    },
+    body: JSON.stringify({from: env.EMAIL_FROM, to, subject, html, text})
+  });
+  const body = await response.text();
+  if (!response.ok) throw new Error(`Email provider error: ${response.status} ${body}`);
+  return body ? JSON.parse(body) : {};
+}
+
+export function safeEqual(left, right) {
+  if (typeof left !== 'string' || typeof right !== 'string' || left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  return difference === 0;
 }

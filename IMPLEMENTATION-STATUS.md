@@ -7,8 +7,8 @@ Updated 2026-11-16.
 - Login-first gate on the main product route.
 - Owner-only admin access for `olanitealabij2023@gmail.com`, with two stored security-question answers. The removed authenticator routes redirect to `/admin-login`.
 - Service/pricing updates come through the Firebase/Firestore compatibility adapter and refresh visible price, delivery, and description fields.
-- Server-side checkout route for creating an order and Flutterwave payment link.
-- Flutterwave webhook route with `verif-hash` checking, transaction re-verification, amount/currency/reference checks, duplicate-event protection, and paid/failed email hooks.
+- Firebase-backed server-side checkout route for creating an order and a unique Flutterwave hosted checkout link. It remains fail-closed while `PAYMENTS_READY=false`.
+- Flutterwave webhook route with legacy `verif-hash` and current signature support, transaction re-verification, amount/currency/reference checks, duplicate-event protection, and paid/failed email hooks.
 - Business-plan validator is clearly marked Coming Soon; the live-search route is intentionally disabled until the provider, source verification, safety checks, and spending controls are complete.
 - Customer activity is queried with an explicit account filter in the client and enforced by Firestore rules; the owner dashboard can review a selected account read-only.
 - Completed validator reports are saved in `validator_checks`; customers can reopen their full report and sources in their account, and the owner can open the saved details from the admin customer view.
@@ -35,7 +35,7 @@ Updated 2026-11-16.
 - Adding production secrets to the Cloudflare secret store.
 - Testing and enabling the prepared provider-neutral Promo Studio generation endpoint, saved results, entitlements, usage limits, and capacity pause.
 - Owner must create/configure the Gemini key and Firebase service-account secret in Cloudflare; no key is present in the repository.
-- Connecting Flutterwave only after server-side ownership, signature verification, independent transaction verification, and idempotency are tested against the chosen datastore.
+- Add Flutterwave test secrets to Cloudflare, configure the webhook URL, and test server-side ownership, signature verification, independent transaction verification, exact amount/currency/reference checks, and idempotency against Firebase before enabling `PAYMENTS_READY`.
 - Testing real sign-in, payments, webhooks, AI provider errors, quota exhaustion, saved results, phone layouts, and the master instruction’s acceptance tests.
 
 No AI generation, payment activation, or connected-provider success is claimed until those steps are completed and evidenced.

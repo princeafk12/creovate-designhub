@@ -1,17 +1,21 @@
-# Cloudflare Pages Functions development secrets.
-# Copy to .dev.vars locally and fill with real values. Never commit .dev.vars.
+# Cloudflare Pages Functions development values.
+# Copy to .dev.vars locally and fill with test values. Never commit .dev.vars.
+OWNER_EMAIL=olanitealabij2023@gmail.com
+OWNER_NOTIFICATION_EMAIL=olanitealabij2023@gmail.com
+# Legacy admin password-reset variables; keep only if that endpoint is retained.
 SUPABASE_URL=
 SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
-OWNER_EMAIL=olanitealabij2023@gmail.com
 FLW_SECRET_KEY=
 FLW_SECRET_HASH=
 RESEND_API_KEY=
 EMAIL_FROM=
-OWNER_NOTIFICATION_EMAIL=olanitealabij2023@gmail.com
 # Reserved for the future live validator release. No live-search provider is active yet.
 # Do not add provider keys until the validator is released and the provider has been verified.
 APP_BASE_URL=http://localhost:8788
+# Keep this false until Flutterwave test checkout, webhook verification,
+# duplicate-event handling, and admin/account checks have passed.
+PAYMENTS_READY=false
 # Promo Studio remains fail-closed until the owner completes provider and payment testing.
 FIREBASE_PROJECT_ID=creovate-designhub
 FIREBASE_WEB_API_KEY=
@@ -21,5 +25,4 @@ GEMINI_API_KEY=
 GEMINI_MODEL=
 PROMO_STUDIO_ENABLED=false
 GENERATION_PAUSED=true
-PAYMENTS_READY=false
 AI_DAILY_LIMIT=5
