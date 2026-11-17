@@ -33,6 +33,13 @@ service cloud.firestore {
       allow create: if newOwnUser();
       allow update, delete: if owner() || ownUser();
     }
+    match /generation_jobs/{document} {
+      allow read: if owner() || ownUser();
+      allow write: if false;
+    }
+    match /generation_usage/{document} {
+      allow read, write: if false;
+    }
     match /{document=**} {
       allow read, write: if false;
     }

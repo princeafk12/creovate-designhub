@@ -20,6 +20,7 @@ Updated 2026-11-16.
 - Payment return page and Cloudflare Pages Functions environment template.
 - Audit report in `AUDIT-REPORT.md`.
 - Business Tools catalogue and Promo Studio input interface. It is deliberately non-billable and non-generating until the secure AI and payment workflow is implemented and tested.
+- Provider-neutral Promo Studio preparation: server-side Firebase token verification, Gemini adapter, fail-closed feature flags, input limits, per-customer daily allowance, failure recovery, Firestore job storage, and customer-account result history. See `PROMO-STUDIO-SETUP.md`.
 
 ## Verified locally
 
@@ -33,6 +34,7 @@ Updated 2026-11-16.
 - Migrating the server functions from Supabase to Firebase, or explicitly configuring and retaining Supabase for those workflows.
 - Adding production secrets to the Cloudflare secret store.
 - Implementing the provider-neutral Promo Studio generation endpoint, saved results, entitlements, usage limits, and capacity pause.
+- Owner must create/configure the Gemini key and Firebase service-account secret in Cloudflare; no key is present in the repository.
 - Connecting Flutterwave only after server-side ownership, signature verification, independent transaction verification, and idempotency are tested against the chosen datastore.
 - Testing real sign-in, payments, webhooks, AI provider errors, quota exhaustion, saved results, phone layouts, and the master instruction’s acceptance tests.
 

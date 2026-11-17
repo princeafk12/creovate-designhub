@@ -7,6 +7,7 @@
   const escape = auth.escapeHtml;
   const email = document.querySelector('#account-email');
   const ordersBox = document.querySelector('#orders-list');
+  const promoBox = document.querySelector('#promo-results-list');
   const checksBox = document.querySelector('#account-validator-checks');
 
   if (email) email.textContent = `Signed in as ${user.email}`;
@@ -47,6 +48,13 @@
     if (!report && !sources.length) return '';
     return `<details class="validator-history-details"><summary>Open saved report and sources</summary><div class="validator-history-report">${input.stage ? `<p><strong>Stage:</strong> ${escape(input.stage)}</p>` : ''}${input.skills ? `<p><strong>Skills:</strong> ${escape(input.skills)}</p>` : ''}${input.resources ? `<p><strong>Resources:</strong> ${escape(input.resources)}</p>` : ''}${check.result?.analysis ? `<div class="validator-history-analysis"><p><strong>Overall score:</strong> ${escape(check.result.analysis.overall_viability?.score ?? check.score ?? 'Not scored')}/100</p>${renderAnalysis(check.result.analysis)}</div>` : report ? `<div>${escape(report).replace(/\n/g, '<br>')}</div>` : '<p>Report text was not stored.</p>'}</div>${sourceList ? `<div class="validator-history-sources"><strong>Sources and dates</strong><ol>${sourceList}</ol></div>` : ''}</details>`;
   };
+  const renderPromoResult = job => {
+    const labels = {campaign_strategy: 'Campaign strategy', target_audience_angle: 'Target audience angle', headlines: 'Headline options', main_promotional_copy: 'Main promotional copy', flyer_ready_text: 'Flyer-ready text', whatsapp_message: 'WhatsApp message', instagram_caption: 'Instagram caption', facebook_post: 'Facebook post', x_post: 'X post', call_to_actions: 'Call-to-action suggestions', hashtags: 'Hashtags', visual_direction: 'Visual direction'};
+    const result = job.result || {};
+    const renderValue = value => Array.isArray(value) ? `<ul>${value.map(item => `<li>${escape(item)}</li>`).join('')}</ul>` : `<p>${escape(value).replace(/\n/g, '<br>')}</p>`;
+    const sections = Object.entries(labels).filter(([key]) => result[key]).map(([key, label]) => `<section><strong>${label}</strong>${renderValue(result[key])}</section>`).join('');
+    return `<article class="order-card promo-history-card"><strong>Promo Studio campaign</strong><span>${escape(job.status || 'saved')}</span><small>${formatDate(job.completed_at || job.created_at)}</small><details class="validator-history-details"><summary>Open campaign package</summary><div class="validator-history-report">${sections || '<p>No campaign result was stored.</p>'}</div></details></article>`;
+  };
 
   // The explicit user_id filters are defense in depth. Supabase RLS remains the
   // authoritative boundary and also permits the owner-only admin view.
@@ -63,12 +71,18 @@
       .order('created_at', {ascending: false})
       .limit(25);
   };
-  const [{data: orders, error: ordersError}, {data: checks, error: checksError}] = await Promise.all([
+  const [{data: orders, error: ordersError}, {data: checks, error: checksError}, {data: promoJobs, error: promoError}] = await Promise.all([
     db.from('orders')
       .select('service_name,price,rush,status,payment_status,created_at,brief')
       .eq('user_id', user.id)
       .order('created_at', {ascending: false}),
-    loadChecks()
+    loadChecks(),
+    db.from('generation_jobs')
+      .select('product,status,created_at,completed_at,result')
+      .eq('user_id', user.id)
+      .eq('product', 'promo_studio')
+      .order('created_at', {ascending: false})
+      .limit(25)
   ]);
 
   if (ordersBox) {
@@ -83,6 +97,16 @@
         <small>${formatDate(order.created_at)} · ${escape(order.status || 'new')} · Payment: ${escape(order.payment_status || 'pending')}</small>
         ${order.brief?.name ? `<small>Brief: ${escape(order.brief.name)}</small>` : ''}
       </article>`).join('');
+    }
+  }
+
+  if (promoBox) {
+    if (promoError) {
+      promoBox.innerHTML = `<p class="form-status is-error">${escape(promoError.message)}</p>`;
+    } else if (!promoJobs?.length) {
+      promoBox.innerHTML = '<p>No Promo Studio campaigns yet.</p>';
+    } else {
+      promoBox.innerHTML = promoJobs.map(renderPromoResult).join('');
     }
   }
 

@@ -10,7 +10,7 @@ The current public address is `https://creovate-designhub.pages.dev/`. This free
 
 The browser-facing build currently uses Firebase Authentication and Firestore. Enable Email/Password in Firebase Authentication, create Firestore, publish `firebase.rules`, and keep `olanitealabij2023@gmail.com` as the only owner account. The admin area uses two security questions; the old authenticator routes redirect to `/admin-login`. The Cloudflare server functions are still on the older Supabase backend and must be migrated or deliberately configured before checkout, webhooks, validator requests, or server-side password reset are treated as live.
 
-The default site route, service catalogue, Business Tools section, brief form, account, and admin area require an authenticated customer session. Promo Studio is currently an interface-only milestone: it does not charge, call an AI provider, or claim to generate a result. The live business validator is marked Coming Soon. Never place server secrets in frontend files. The login recovery link opens a WhatsApp request to `08084002972`.
+The default site route, service catalogue, Business Tools section, brief form, account, and admin area require an authenticated customer session. Promo Studio now has a fail-closed server generation path, but it remains disabled until the owner completes `PROMO-STUDIO-SETUP.md`, configures the provider secrets, and finishes payment testing. It does not charge while disabled. The live business validator is marked Coming Soon. Never place server secrets in frontend files. The login recovery link opens a WhatsApp request to `08084002972`.
 
 ## Publish with Cloudflare Pages
 
