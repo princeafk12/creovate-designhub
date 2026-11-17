@@ -33,7 +33,7 @@ Updated 2026-11-16.
 - Firebase, Cloudflare, Flutterwave, Resend, and future AI-provider configuration.
 - Migrating the server functions from Supabase to Firebase, or explicitly configuring and retaining Supabase for those workflows.
 - Adding production secrets to the Cloudflare secret store.
-- Implementing the provider-neutral Promo Studio generation endpoint, saved results, entitlements, usage limits, and capacity pause.
+- Testing and enabling the prepared provider-neutral Promo Studio generation endpoint, saved results, entitlements, usage limits, and capacity pause.
 - Owner must create/configure the Gemini key and Firebase service-account secret in Cloudflare; no key is present in the repository.
 - Connecting Flutterwave only after server-side ownership, signature verification, independent transaction verification, and idempotency are tested against the chosen datastore.
 - Testing real sign-in, payments, webhooks, AI provider errors, quota exhaustion, saved results, phone layouts, and the master instruction’s acceptance tests.
