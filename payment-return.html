@@ -13,19 +13,65 @@
     <a class="logo auth-logo" href="index.html">CREOVATE <span>—</span><br>DesignHub</a>
     <section class="auth-card">
       <p class="eyebrow eyebrow-dark">Payment submitted</p>
-      <h1>We are checking your payment.</h1>
-      <p>Flutterwave confirmation is handled securely by the server. Your order will show as paid only after the transaction is re-verified.</p>
-      <p><a class="button button-dark" href="account.html">View my orders</a></p>
+      <h1 id="payment-heading">We are checking your payment.</h1>
+      <p id="payment-status">Flutterwave confirmation is handled securely by the server. Your order will show as paid only after the transaction is re-verified.</p>
+      <div id="campaign-result" class="tool-result" hidden></div>
+      <p><a class="button button-dark" href="account.html">View my orders and campaigns</a></p>
       <p><a href="index.html">Return to CREOVATE</a></p>
     </section>
   </main>
+  <script src="firebase-config.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore-compat.js"></script>
+  <script src="auth.js"></script>
+  <script>
+  (async () => {
+    const heading = document.querySelector('#payment-heading');
+    const status = document.querySelector('#payment-status');
+    const resultBox = document.querySelector('#campaign-result');
+    const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[character]));
+    const labels = {campaign_strategy:'Campaign strategy', target_audience_angle:'Target audience angle', headlines:'Headline options', main_promotional_copy:'Main promotional copy', flyer_ready_text:'Flyer-ready text', whatsapp_message:'WhatsApp message', instagram_caption:'Instagram caption', facebook_post:'Facebook post', x_post:'X post', call_to_actions:'Call-to-action suggestions', hashtags:'Hashtags', visual_direction:'Visual direction'};
+    const renderValue = value => Array.isArray(value) ? `<ul>${value.map(item => `<li>${escape(item)}</li>`).join('')}</ul>` : `<p>${escape(value).replace(/\n/g, '<br>')}</p>`;
+    const renderCampaign = result => `<div class="tool-result-heading"><h4>Promo Studio campaign package</h4><span><button class="text-button" type="button" id="copy-campaign">Copy</button> <button class="text-button" type="button" id="download-campaign">Download</button></span></div>${Object.entries(labels).filter(([key]) => result[key]).map(([key, label]) => `<section><h5>${label}</h5>${renderValue(result[key])}</section>`).join('')}`;
+    try {
+      const user = await CREOVATE_AUTH.requireUser('payment-return.html');
+      if (!user) return;
+      document.documentElement.classList.remove('auth-pending');
+      const orderId = new URLSearchParams(window.location.search).get('order_id');
+      if (!orderId) { heading.textContent = 'Payment received'; return; }
+      const db = CREOVATE_AUTH.client();
+      let order;
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        const response = await db.from('orders').select('*').eq('id', orderId).maybeSingle();
+        order = response.data;
+        if (order?.payment_status === 'paid') break;
+        if (attempt < 5) await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+      if (!order) { status.textContent = 'We could not find this order in your account. Please open your account page or contact CREOVATE.'; return; }
+      if (order.payment_status !== 'paid') { heading.textContent = 'Payment is still being verified.'; status.textContent = 'No generation has started. Refresh this page in a moment or check your account later.'; return; }
+      if (order.product_slug !== 'promo_studio') { heading.textContent = 'Payment verified.'; status.textContent = 'Your design order is now recorded as paid. We will continue with the agreed brief.'; return; }
+      heading.textContent = 'Payment verified. Preparing your campaign.';
+      status.textContent = 'Your paid Promo Studio generation is being prepared and saved to your account.';
+      const session = (await db.auth.getSession()).data.session;
+      const response = await fetch('/api/generate-promo', {method:'POST', headers:{'content-type':'application/json', authorization:`Bearer ${session.access_token}`}, body:JSON.stringify({order_id: orderId})});
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'The campaign could not be generated yet.');
+      heading.textContent = 'Your campaign is ready.';
+      status.textContent = 'It has been saved to your account. You can copy or download it below.';
+      resultBox.hidden = false;
+      resultBox.innerHTML = renderCampaign(body.result || {});
+      document.querySelector('#copy-campaign')?.addEventListener('click', async event => { await navigator.clipboard.writeText(JSON.stringify(body.result || {}, null, 2)); event.currentTarget.textContent = 'Copied'; });
+      document.querySelector('#download-campaign')?.addEventListener('click', () => {
+        const blob = new Blob([JSON.stringify(body.result || {}, null, 2)], {type:'application/json'});
+        const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'creovate-promo-studio-campaign.json'; link.click(); URL.revokeObjectURL(link.href);
+      });
+    } catch (error) {
+      document.documentElement.classList.remove('auth-pending');
+      status.textContent = error.message || 'We could not complete the payment check.';
+      status.classList.add('is-error');
+    }
+  })();
+  </script>
 </body>
-<script src="firebase-config.js"></script>
-<script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore-compat.js"></script>
-<script src="auth.js"></script>
-<script>(async()=>{try{const user=await CREOVATE_AUTH.requireUser('payment-return.html');if(user)document.documentElement.classList.remove('auth-pending');}catch(error){window.location.href='signup.html?next=payment-return.html';}})();</script>
 </html>
-
-

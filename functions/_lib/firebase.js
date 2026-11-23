@@ -90,11 +90,20 @@ function documentFromFirestore(document) {
 }
 
 export async function firestoreAdminGet({env, collection, documentId}) {
+  const result = await firestoreAdminGetWithMeta({env, collection, documentId});
+  return result?.data || null;
+}
+
+export async function firestoreAdminGetWithMeta({env, collection, documentId}) {
   const response = await fetch(firestoreUrl(env, collection, documentId), {headers: {authorization: `Bearer ${await adminAccessToken(env)}`}});
   if (response.status === 404) return null;
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.error?.message || `Firestore read failed (${response.status}).`);
-  return Object.fromEntries(Object.entries(body.fields || {}).map(([key, value]) => [key, fromFirestoreValue(value)]));
+  return {
+    data: Object.fromEntries(Object.entries(body.fields || {}).map(([key, value]) => [key, fromFirestoreValue(value)])),
+    updateTime: body.updateTime || null,
+    createTime: body.createTime || null
+  };
 }
 
 export async function firestoreAdminQuery({env, collection, where = [], limit = 20}) {
@@ -111,8 +120,10 @@ export async function firestoreAdminQuery({env, collection, where = [], limit = 
   return (Array.isArray(body) ? body : []).map(item => documentFromFirestore(item.document)).filter(Boolean);
 }
 
-export async function firestoreAdminWrite({env, collection, documentId, fields}) {
-  const response = await fetch(firestoreUrl(env, collection, documentId), {method: 'PATCH', headers: {'content-type': 'application/json', authorization: `Bearer ${await adminAccessToken(env)}`}, body: JSON.stringify({fields: Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, firestoreValue(value)]))})});
+export async function firestoreAdminWrite({env, collection, documentId, fields, currentDocument}) {
+  const payload = {fields: Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, firestoreValue(value)]))};
+  if (currentDocument) payload.currentDocument = currentDocument;
+  const response = await fetch(firestoreUrl(env, collection, documentId), {method: 'PATCH', headers: {'content-type': 'application/json', authorization: `Bearer ${await adminAccessToken(env)}`}, body: JSON.stringify(payload)});
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.error?.message || `Firestore write failed (${response.status}).`);
   return body;

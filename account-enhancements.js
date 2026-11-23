@@ -53,7 +53,8 @@
     const result = job.result || {};
     const renderValue = value => Array.isArray(value) ? `<ul>${value.map(item => `<li>${escape(item)}</li>`).join('')}</ul>` : `<p>${escape(value).replace(/\n/g, '<br>')}</p>`;
     const sections = Object.entries(labels).filter(([key]) => result[key]).map(([key, label]) => `<section><strong>${label}</strong>${renderValue(result[key])}</section>`).join('');
-    return `<article class="order-card promo-history-card"><strong>Promo Studio campaign</strong><span>${escape(job.status || 'saved')}</span><small>${formatDate(job.completed_at || job.created_at)}</small><details class="validator-history-details"><summary>Open campaign package</summary><div class="validator-history-report">${sections || '<p>No campaign result was stored.</p>'}</div></details></article>`;
+    const actions = job.status === 'completed' ? `<div class="promo-actions"><button class="button button-outline-dark" type="button" data-copy-promo="${escape(job.id || '')}">Copy</button><button class="button button-outline-dark" type="button" data-download-promo="${escape(job.id || '')}">Download</button>${job.order_id ? (job.regeneration_used ? '<span class="form-note">Free regeneration used</span>' : `<button class="button button-outline-dark" type="button" data-regenerate-promo="${escape(job.id || '')}">Use free regeneration</button>`) : ''}</div>` : '';
+    return `<article class="order-card promo-history-card"><strong>Promo Studio campaign</strong><span>${escape(job.status || 'saved')}</span><small>${formatDate(job.completed_at || job.created_at)} · Attempt ${escape(job.generation_attempt || 1)}</small>${actions}<details class="validator-history-details"><summary>Open campaign package</summary><div class="validator-history-report">${sections || '<p>No campaign result was stored.</p>'}</div></details><span hidden data-promo-json="${escape(job.id || '')}">${escape(JSON.stringify(result))}</span></article>`;
   };
 
   // The explicit user_id filters are defense in depth. Supabase RLS remains the
@@ -78,7 +79,7 @@
       .order('created_at', {ascending: false}),
     loadChecks(),
     db.from('generation_jobs')
-      .select('product,status,created_at,completed_at,result')
+      .select('id,order_id,product,status,created_at,completed_at,result,generation_attempt,regeneration_used')
       .eq('user_id', user.id)
       .eq('product', 'promo_studio')
       .order('created_at', {ascending: false})
@@ -109,6 +110,35 @@
       promoBox.innerHTML = promoJobs.map(renderPromoResult).join('');
     }
   }
+
+  promoBox?.addEventListener('click', async event => {
+    const download = event.target.closest('[data-download-promo]');
+    const copy = event.target.closest('[data-copy-promo]');
+    const regenerate = event.target.closest('[data-regenerate-promo]');
+    if (!download && !copy && !regenerate) return;
+    const jobId = (download || copy || regenerate).dataset.downloadPromo || (download || copy || regenerate).dataset.copyPromo || (download || copy || regenerate).dataset.regeneratePromo;
+    const jsonNode = promoBox.querySelector(`[data-promo-json="${CSS.escape(jobId)}"]`);
+    let result = {};
+    try { result = JSON.parse(jsonNode?.textContent || '{}'); } catch {}
+    if (copy) {
+      await navigator.clipboard.writeText(JSON.stringify(result, null, 2));
+      copy.textContent = 'Copied';
+      return;
+    }
+    if (download) {
+      const blob = new Blob([JSON.stringify(result, null, 2)], {type: 'application/json'});
+      const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = 'creovate-promo-studio-campaign.json'; link.click(); URL.revokeObjectURL(link.href);
+      return;
+    }
+    const session = (await db.auth.getSession()).data.session;
+    if (!session) return;
+    regenerate.disabled = true;
+    regenerate.textContent = 'Regenerating…';
+    const response = await fetch('/api/generate-promo', {method: 'POST', headers: {'content-type': 'application/json', authorization: `Bearer ${session.access_token}`}, body: JSON.stringify({action: 'regenerate', job_id: jobId})});
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) { regenerate.disabled = false; regenerate.textContent = body.error || 'Regenerate'; return; }
+    window.location.reload();
+  });
 
   if (checksBox) {
     if (checksError) {

@@ -1,4 +1,4 @@
-import {firestoreAdminCreate, firestoreAdminQuery, firestoreAdminWrite, json, safeEqual, sendEmail} from '../../_lib/firebase.js';
+import {firestoreAdminCreate, firestoreAdminGet, firestoreAdminQuery, firestoreAdminWrite, json, safeEqual, sendEmail} from '../../_lib/firebase.js';
 
 const OWNER_EMAIL = 'olanitealabij2023@gmail.com';
 
@@ -32,6 +32,26 @@ async function eventDocumentId(eventKey) {
 
 async function notify(env, payload) {
   try { await sendEmail(env, payload); } catch (error) { console.error('CREOVATE payment email failed', error); }
+}
+
+async function ensureToolEntitlement(env, order, paidAt) {
+  if (order.order_type !== 'tool' || !order.product_slug) return;
+  const existing = await firestoreAdminGet({env, collection: 'entitlements', documentId: order.id});
+  if (existing) return;
+  await firestoreAdminCreate({
+    env,
+    collection: 'entitlements',
+    documentId: order.id,
+    fields: {
+      id: order.id,
+      order_id: order.id,
+      user_id: order.user_id,
+      product_slug: order.product_slug,
+      status: 'available',
+      regeneration_allowed: true,
+      created_at: paidAt
+    }
+  });
 }
 
 export async function onRequestPost({request, env}) {
@@ -76,11 +96,15 @@ export async function onRequestPost({request, env}) {
     }
 
     if (transactionStatus !== 'successful' || !amountMatches || !currencyMatches || !referenceMatches) return new Response('', {status: 200});
-    if (order.payment_status === 'paid') return new Response('', {status: 200});
+    if (order.payment_status === 'paid') {
+      await ensureToolEntitlement(env, order, order.payment_verified_at || new Date().toISOString());
+      return new Response('', {status: 200});
+    }
 
     const paidAt = new Date().toISOString();
     const paidOrder = {...order, payment_status: 'paid', paid_at: paidAt, payment_verified_at: paidAt, flutterwave_transaction_id: String(transaction.id), updated_at: paidAt};
     await firestoreAdminWrite({env, collection: 'orders', documentId: order.id, fields: paidOrder});
+    await ensureToolEntitlement(env, paidOrder, paidAt);
     const event = await firestoreAdminCreate({env, collection: 'flutterwave_events', documentId: eventId, fields: {id: eventId, provider: 'flutterwave', event_key: eventKey, transaction_id: String(transaction.id), tx_ref: String(transaction.tx_ref), status: transactionStatus, received_at: paidAt, processed_at: paidAt}});
     if (!event.created) return new Response('', {status: 200});
 

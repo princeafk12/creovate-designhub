@@ -157,8 +157,27 @@
     return build('idea,audience,score,verdict,created_at');
   };
 
-  const recentOrders = await db.from('orders').select('service_name,price,rush,status,payment_status,created_at,brief').order('created_at', {ascending: false}).limit(25);
+  const recentOrders = await db.from('orders').select('service_name,price,rush,status,payment_status,created_at,brief,order_type,product_slug').order('created_at', {ascending: false}).limit(25);
   renderOrders(document.querySelector('#admin-orders'), recentOrders.data, recentOrders.error);
+  const recentPromoJobs = await db.from('generation_jobs').select('product,status,created_at,completed_at,usage,generation_attempt').order('created_at', {ascending: false}).limit(50);
+  const paidOrders = (recentOrders.data || []).filter(order => order.payment_status === 'paid');
+  const promoJobs = (recentPromoJobs.data || []).filter(job => job.product === 'promo_studio');
+  const totalRevenue = paidOrders.reduce((sum, order) => sum + Number(order.price || 0), 0);
+  const completedJobs = promoJobs.filter(job => job.status === 'completed');
+  const failedJobs = promoJobs.filter(job => job.status === 'failed');
+  const totalTokens = completedJobs.reduce((sum, job) => sum + Number(job.usage?.total_tokens || 0), 0);
+  const estimatedCost = completedJobs.reduce((sum, job) => sum + Number(job.usage?.estimated_cost_usd || 0), 0);
+  const summary = document.querySelector('#admin-business-summary');
+  if (summary) summary.innerHTML = [
+    ['Recent paid revenue', formatMoney(totalRevenue)],
+    ['Paid orders', String(paidOrders.length)],
+    ['Promo completed', String(completedJobs.length)],
+    ['Promo failed', String(failedJobs.length)],
+    ['Recorded tokens', totalTokens.toLocaleString('en-NG')],
+    ['Estimated AI cost', estimatedCost ? `$${estimatedCost.toFixed(4)}` : 'Not configured']
+  ].map(([label, value]) => `<div class="admin-summary-card"><span>${escape(label)}</span><strong>${escape(value)}</strong></div>`).join('');
+  const promoJobsBox = document.querySelector('#admin-promo-jobs');
+  if (promoJobsBox) promoJobsBox.innerHTML = recentPromoJobs.error ? `<p class="form-status is-error">${escape(recentPromoJobs.error.message)}</p>` : promoJobs.length ? promoJobs.map(job => `<article class="order-card"><strong>Promo Studio</strong><span>${escape(job.status || 'unknown')}</span><small>${formatDate(job.completed_at || job.created_at)} · Attempt ${escape(job.generation_attempt || 1)} · ${escape(String(job.usage?.total_tokens || 0))} tokens</small></article>`).join('') : '<p>No Promo Studio jobs yet.</p>';
   const recentChecks = await loadChecks();
   renderChecks(document.querySelector('#admin-validator-checks'), recentChecks.data, recentChecks.error);
 

@@ -37,6 +37,9 @@ service cloud.firestore {
       allow read: if owner() || ownUser();
       allow write: if false;
     }
+    match /entitlements/{document} {
+      allow read, write: if false;
+    }
     match /generation_usage/{document} {
       allow read, write: if false;
     }
