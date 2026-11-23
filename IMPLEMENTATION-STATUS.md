@@ -20,7 +20,7 @@ Updated 2026-11-23.
 - Payment return page and Cloudflare Pages Functions environment template.
 - Audit report in `AUDIT-REPORT.md`.
 - Business Tools catalogue and Promo Studio input interface. Promo Studio now has a server-side paid-order path, but remains non-generating until the secure AI and payment workflow is configured and tested.
-- Promo Studio implementation: server-side Firebase token verification, OpenAI Responses API structured output, fail-closed feature flags, verified paid-order entitlement, input limits, per-customer daily allowance, failure recovery, Firestore job storage, customer-account result history, download, one controlled free regeneration, and owner usage/revenue monitoring. See `PROMO-STUDIO-SETUP.md`.
+- Promo Studio implementation: server-side Firebase token verification, provider-independent structured output with Gemini as the initial provider and OpenAI as an optional adapter, fail-closed feature flags, verified paid-order entitlement, input limits, per-customer daily allowance, quota/error recovery, Firestore job storage, customer-account result history, download, one controlled free regeneration, and owner usage/revenue monitoring. See `PROMO-STUDIO-SETUP.md`.
 
 ## Verified locally
 
@@ -33,8 +33,8 @@ Updated 2026-11-23.
 - Firebase, Cloudflare, Flutterwave, Resend, and future AI-provider configuration.
 - Migrating the server functions from Supabase to Firebase, or explicitly configuring and retaining Supabase for those workflows.
 - Adding production secrets to the Cloudflare secret store.
-- Testing and enabling the prepared OpenAI Promo Studio generation endpoint, saved results, payment entitlements, usage limits, regeneration and capacity pause.
-- Owner must create/configure the OpenAI key, approved model, Firebase service-account secret and optional cost rates in Cloudflare; no provider key is present in the repository.
+- Testing and enabling the prepared Gemini-first Promo Studio generation endpoint, saved results, payment entitlements, usage limits, regeneration and capacity pause.
+- Owner must create/configure the Gemini key, approved model, Firebase service-account secret and optional cost rates in Cloudflare; no provider key is present in the repository.
 - Complete the Flutterwave end-to-end test evidence: server-side ownership, signature verification, independent transaction verification, exact amount/currency/reference checks, duplicate-event protection, entitlement creation, and the account/admin acceptance tests before enabling Promo Studio checkout.
 - Testing real sign-in, payments, webhooks, AI provider errors, quota exhaustion, saved results, phone layouts, and the master instruction’s acceptance tests.
 

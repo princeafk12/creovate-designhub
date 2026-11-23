@@ -30,29 +30,37 @@ function promptFor(input) {
   return `Create a practical promotional campaign package for CREOVATE Promo Studio. Be specific, concise, culturally appropriate for the stated audience and location, and do not invent facts, guarantees, testimonials, discounts, prices, contacts or claims. Return only the requested structured fields.\n\nBusiness input:\n${JSON.stringify(input, null, 2)}`;
 }
 
-function parseOutput(body) {
-  const fallback = Array.isArray(body?.output) ? body.output.flatMap(item => item.content || []).map(item => item.text || '').join('') : '';
-  const text = String(body?.output_text || fallback || '').trim();
-  if (!text) throw new Error('The OpenAI provider returned no campaign result.');
-  const result = JSON.parse(text.replace(/^```json\s*/i, '').replace(/```$/i, '').trim());
+function parseJsonText(text, provider) {
+  const raw = String(text || '').trim();
+  if (!raw) throw new Error(`The ${provider} provider returned no campaign result.`);
+  const result = JSON.parse(raw.replace(/^```json\s*/i, '').replace(/```$/i, '').trim());
   if (!result || typeof result !== 'object' || outputKeys.some(key => !(key in result))) throw new Error('The AI response did not match the campaign schema.');
   return result;
 }
 
-function providerUsage(body, env) {
-  const usage = body?.usage || {};
-  const inputTokens = Number(usage.input_tokens || 0);
-  const outputTokens = Number(usage.output_tokens || 0);
-  const inputRate = Number(env.OPENAI_INPUT_USD_PER_MILLION || 0);
-  const outputRate = Number(env.OPENAI_OUTPUT_USD_PER_MILLION || 0);
-  const estimatedCost = inputRate || outputRate ? ((inputTokens / 1e6) * inputRate) + ((outputTokens / 1e6) * outputRate) : null;
-  return {input_tokens: inputTokens, output_tokens: outputTokens, total_tokens: Number(usage.total_tokens || inputTokens + outputTokens), estimated_cost_usd: estimatedCost};
+function parseOpenAIOutput(body) {
+  const fallback = Array.isArray(body?.output) ? body.output.flatMap(item => item.content || []).map(item => item.text || '').join('') : '';
+  return parseJsonText(body?.output_text || fallback, 'OpenAI');
 }
 
-async function createCampaign({brief, env}) {
-  if (String(env.AI_PROVIDER || 'openai').toLowerCase() !== 'openai' || !env.OPENAI_API_KEY || !env.OPENAI_MODEL) {
-    throw new Error('The OpenAI provider is not configured yet.');
-  }
+function parseGeminiOutput(body) {
+  const text = Array.isArray(body?.candidates?.[0]?.content?.parts) ? body.candidates[0].content.parts.map(part => part.text || '').join('') : '';
+  return parseJsonText(text, 'Gemini');
+}
+
+function providerUsage(body, env, provider) {
+  const usage = body?.usage || {};
+  const isGemini = provider === 'gemini';
+  const inputTokens = Number(isGemini ? (usage.promptTokenCount || 0) : (usage.input_tokens || 0));
+  const outputTokens = Number(isGemini ? (usage.candidatesTokenCount || 0) : (usage.output_tokens || 0));
+  const inputRate = Number(env[`${provider.toUpperCase()}_INPUT_USD_PER_MILLION`] || 0);
+  const outputRate = Number(env[`${provider.toUpperCase()}_OUTPUT_USD_PER_MILLION`] || 0);
+  const estimatedCost = inputRate || outputRate ? ((inputTokens / 1e6) * inputRate) + ((outputTokens / 1e6) * outputRate) : null;
+  return {provider, input_tokens: inputTokens, output_tokens: outputTokens, total_tokens: Number(isGemini ? (usage.totalTokenCount || inputTokens + outputTokens) : (usage.total_tokens || inputTokens + outputTokens)), estimated_cost_usd: estimatedCost};
+}
+
+async function createOpenAICampaign({brief, env}) {
+  if (!env.OPENAI_API_KEY || !env.OPENAI_MODEL) throw new Error('The OpenAI provider is not configured yet.');
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: {authorization: `Bearer ${env.OPENAI_API_KEY}`, 'content-type': 'application/json'},
@@ -64,8 +72,38 @@ async function createCampaign({brief, env}) {
     })
   });
   const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error?.message || `OpenAI returned ${response.status}.`);
-  return {result: parseOutput(body), usage: providerUsage(body, env)};
+  if (!response.ok) {
+    const error = new Error(body.error?.message || `OpenAI returned ${response.status}.`);
+    error.providerStatus = response.status;
+    throw error;
+  }
+  return {result: parseOpenAIOutput(body), usage: providerUsage(body, env, 'openai')};
+}
+
+async function createGeminiCampaign({brief, env}) {
+  if (!env.GEMINI_API_KEY || !env.GEMINI_MODEL) throw new Error('The Gemini provider is not configured yet.');
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(env.GEMINI_MODEL)}:generateContent`, {
+    method: 'POST',
+    headers: {'x-goog-api-key': env.GEMINI_API_KEY, 'content-type': 'application/json'},
+    body: JSON.stringify({
+      contents: [{role: 'user', parts: [{text: `You are the CREOVATE Promo Studio copy strategist.\n\n${promptFor(brief)}`}]}],
+      generationConfig: {responseMimeType: 'application/json', responseJsonSchema: outputSchema, temperature: 0.7, maxOutputTokens: 2200}
+    })
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error(body.error?.message || body.promptFeedback?.blockReason || `Gemini returned ${response.status}.`);
+    error.providerStatus = response.status;
+    throw error;
+  }
+  return {result: parseGeminiOutput(body), usage: providerUsage({usage: body.usageMetadata}, env, 'gemini')};
+}
+
+async function createCampaign({brief, env}) {
+  const provider = String(env.AI_PROVIDER || 'gemini').toLowerCase();
+  if (provider === 'gemini') return createGeminiCampaign({brief, env});
+  if (provider === 'openai') return createOpenAICampaign({brief, env});
+  throw new Error(`The configured AI provider is not supported: ${provider}.`);
 }
 
 async function claimOrder({env, orderId, user, jobId}) {
@@ -180,7 +218,8 @@ export async function onRequestPost({request, env}) {
       }
       if (!isRegeneration && claimed?.order?.id) await firestoreAdminWrite({env, collection: 'orders', documentId: claimed.order.id, fields: {...claimed.order, generation_status: 'failed', generation_error: message.slice(0, 300), updated_at: new Date().toISOString()}});
     } catch {}
-    const status = /not configured|configuration/i.test(message) ? 503 : /already|still being|not available|required|limit|incomplete|too long|regeneration/i.test(message) ? 409 : 502;
+    const providerStatus = Number(error?.providerStatus || 0);
+    const status = providerStatus === 429 || /quota|rate limit|resource exhausted|too many requests|429/i.test(message) ? 429 : providerStatus === 503 || /not configured|configuration/i.test(message) ? 503 : /already|still being|not available|required|limit|incomplete|too long|regeneration/i.test(message) ? 409 : 502;
     return json({error: message}, status);
   }
 }
