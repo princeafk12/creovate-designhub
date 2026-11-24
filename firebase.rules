@@ -23,6 +23,10 @@ service cloud.firestore {
       allow read: if signedIn();
       allow write: if owner();
     }
+    match /portfolio_items/{itemId} {
+      allow read: if resource.data.published == true || owner();
+      allow create, update, delete: if owner();
+    }
     match /orders/{document} {
       allow read: if owner() || ownUser();
       allow create: if newOwnUser();

@@ -244,4 +244,55 @@
       setStatus('#password-status', error.message, true);
     }
   });
+
+  const portfolioForm = document.querySelector('#portfolio-upload-form');
+  const portfolioList = document.querySelector('#portfolio-admin-list');
+  const portfolioStorage = window.firebase?.storage ? window.firebase.storage() : null;
+  const portfolioFirestore = window.firebase?.firestore ? window.firebase.firestore() : null;
+  const safeFileName = value => String(value || 'portfolio-image').toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 90) || 'portfolio-image';
+  const portfolioId = () => typeof crypto?.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const renderPortfolioItems = snapshot => {
+    if (!portfolioList) return;
+    const items = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
+    portfolioList.innerHTML = items.length ? items.map(item => `<article class="portfolio-admin-item"><img src="${escape(item.image_url)}" alt=""><div><strong>${escape(item.title)}</strong><span>${escape(item.category || 'Other')}</span><small>${item.published ? 'Published' : 'Hidden'} · ${escape(formatDate(item.created_at))}</small></div></article>`).join('') : '<p>No uploaded portfolio pieces yet.</p>';
+  };
+  const loadPortfolioItems = async () => {
+    if (!portfolioList || !portfolioFirestore) return;
+    portfolioList.innerHTML = '<p>Loading uploaded portfolio pieces…</p>';
+    try {
+      const snapshot = await portfolioFirestore.collection('portfolio_items').orderBy('created_at', 'desc').limit(50).get();
+      renderPortfolioItems(snapshot);
+    } catch (error) {
+      portfolioList.innerHTML = `<p class="form-status is-error">${escape(error.message || 'Could not load portfolio pieces.')}</p>`;
+    }
+  };
+  portfolioForm?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const title = document.querySelector('#portfolio-title')?.value.trim() || '';
+    const category = document.querySelector('#portfolio-category')?.value || 'Other';
+    const file = document.querySelector('#portfolio-image')?.files?.[0];
+    if (!portfolioStorage || !portfolioFirestore) { setStatus('#portfolio-upload-status', 'Portfolio storage is not available yet. Enable Firebase Storage and reload this page.', true); return; }
+    if (!title || !file) { setStatus('#portfolio-upload-status', 'Add a title and choose an image first.', true); return; }
+    if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) { setStatus('#portfolio-upload-status', 'Use a JPG, PNG or WebP image.', true); return; }
+    if (file.size > 10 * 1024 * 1024) { setStatus('#portfolio-upload-status', 'That image is larger than 10 MB. Choose a smaller file.', true); return; }
+    const id = portfolioId();
+    const storagePath = `portfolio/${id}-${safeFileName(file.name)}`;
+    const submitButton = portfolioForm.querySelector('button[type="submit"]');
+    if (submitButton) submitButton.disabled = true;
+    setStatus('#portfolio-upload-status', 'Uploading and publishing…');
+    try {
+      const upload = await portfolioStorage.ref(storagePath).put(file, {contentType: file.type, customMetadata: {title, category}});
+      const imageUrl = await upload.ref.getDownloadURL();
+      await portfolioFirestore.collection('portfolio_items').doc(id).set({id, title, category, image_url: imageUrl, storage_path: storagePath, published: true, created_at: new Date().toISOString()});
+      portfolioForm.reset();
+      setStatus('#portfolio-upload-status', 'Published. Refresh the public portfolio to see it.');
+      await loadPortfolioItems();
+    } catch (error) {
+      setStatus('#portfolio-upload-status', error.message || 'Portfolio upload failed.', true);
+      try { await portfolioStorage.ref(storagePath).delete(); } catch {}
+    } finally {
+      if (submitButton) submitButton.disabled = false;
+    }
+  });
+  loadPortfolioItems();
 })();

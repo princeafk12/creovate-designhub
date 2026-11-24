@@ -1,0 +1,17 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function owner() {
+      return request.auth != null &&
+        request.auth.token.email == 'olanitealabij2023@gmail.com';
+    }
+
+    match /portfolio/{allPaths=**} {
+      allow read: if true;
+      allow write: if owner()
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if owner();
+    }
+  }
+}
