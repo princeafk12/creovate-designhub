@@ -6,5 +6,7 @@
 node_modules/
 dist/
 .portfolio-source-import-*/
+.portfolio-source-works-*/
 .portfolio-contact-sheet.png
+.portfolio-works-contact-sheet.png
 
