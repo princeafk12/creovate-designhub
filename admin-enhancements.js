@@ -23,8 +23,8 @@
     services_intro: 'Naira prices. Full payment before work starts. Delivery by email or Google Drive, in PDF and PNG.',
     brief_heading: 'Tell us exactly what you want.',
     brief_intro: 'Fill in this short brief and it will open in WhatsApp as one clear message. Include the look, wording, colours and references you have in mind so we can understand the job before we reply.',
-    validator_heading: 'Validate → Plan → Execute.',
-    validator_intro: 'Build a practical first view of demand, competition, money, setup requirements, risks and your next 30 days. Signed-in checks use current web information, show dated sources, and save the report only in your customer account.',
+    validator_heading: 'Check your idea with current country data.',
+    validator_intro: 'Free limited checks use public World Bank country indicators with Gemini analysis. They do not live-search competitors or confirm local laws, customer claims, or current prices; assumptions and evidence gaps are labelled.',
     portfolio_heading: 'See real designs in our full portfolio.',
     portfolio_intro: 'Browse logos, flyers, social posts and brand work in the CREOVATE Google Drive folder.',
     footer_tagline: 'Premium design for businesses that want to look the part.',
@@ -160,25 +160,29 @@
   const recentOrders = await db.from('orders').select('service_name,price,rush,status,payment_status,created_at,brief,order_type,product_slug').order('created_at', {ascending: false}).limit(25);
   renderOrders(document.querySelector('#admin-orders'), recentOrders.data, recentOrders.error);
   const recentPromoJobs = await db.from('generation_jobs').select('product,status,created_at,completed_at,usage,generation_attempt').order('created_at', {ascending: false}).limit(50);
+  const recentChecks = await loadChecks();
   const paidOrders = (recentOrders.data || []).filter(order => order.payment_status === 'paid');
-  const promoJobs = (recentPromoJobs.data || []).filter(job => job.product === 'promo_studio');
+  const toolJobs = recentPromoJobs.data || [];
   const totalRevenue = paidOrders.reduce((sum, order) => sum + Number(order.price || 0), 0);
-  const completedJobs = promoJobs.filter(job => job.status === 'completed');
-  const failedJobs = promoJobs.filter(job => job.status === 'failed');
+  const completedJobs = toolJobs.filter(job => job.status === 'completed');
+  const failedJobs = toolJobs.filter(job => job.status === 'failed');
   const totalTokens = completedJobs.reduce((sum, job) => sum + Number(job.usage?.total_tokens || 0), 0);
+  const validatorChecks = recentChecks.data || [];
+  const validatorTokens = validatorChecks.reduce((sum, check) => sum + Number(check.result?.usage?.totalTokenCount || check.result?.usage?.total_tokens || 0), 0);
   const estimatedCost = completedJobs.reduce((sum, job) => sum + Number(job.usage?.estimated_cost_usd || 0), 0);
   const summary = document.querySelector('#admin-business-summary');
   if (summary) summary.innerHTML = [
     ['Recent paid revenue', formatMoney(totalRevenue)],
     ['Paid orders', String(paidOrders.length)],
-    ['Promo completed', String(completedJobs.length)],
-    ['Promo failed', String(failedJobs.length)],
+    ['Tool generations completed', String(completedJobs.length)],
+    ['Tool generations failed', String(failedJobs.length)],
     ['Recorded tokens', totalTokens.toLocaleString('en-NG')],
+    ['Validator reports / tokens', `${validatorChecks.length} / ${validatorTokens.toLocaleString('en-NG')}`],
     ['Estimated AI cost', estimatedCost ? `$${estimatedCost.toFixed(4)}` : 'Not configured']
   ].map(([label, value]) => `<div class="admin-summary-card"><span>${escape(label)}</span><strong>${escape(value)}</strong></div>`).join('');
   const promoJobsBox = document.querySelector('#admin-promo-jobs');
-  if (promoJobsBox) promoJobsBox.innerHTML = recentPromoJobs.error ? `<p class="form-status is-error">${escape(recentPromoJobs.error.message)}</p>` : promoJobs.length ? promoJobs.map(job => `<article class="order-card"><strong>Promo Studio</strong><span>${escape(job.status || 'unknown')}</span><small>${formatDate(job.completed_at || job.created_at)} · Attempt ${escape(job.generation_attempt || 1)} · ${escape(String(job.usage?.total_tokens || 0))} tokens</small></article>`).join('') : '<p>No Promo Studio jobs yet.</p>';
-  const recentChecks = await loadChecks();
+  const productNames = {promo_studio:'Promo Studio',caption_studio:'Caption Studio',content_planner:'30-Day Content Planner',business_growth_kit:'Business Growth Kit'};
+  if (promoJobsBox) promoJobsBox.innerHTML = recentPromoJobs.error ? `<p class="form-status is-error">${escape(recentPromoJobs.error.message)}</p>` : toolJobs.length ? toolJobs.map(job => `<article class="order-card"><strong>${escape(productNames[job.product] || 'Business Tool')}</strong><span>${escape(job.status || 'unknown')}</span><small>${formatDate(job.completed_at || job.created_at)} · Attempt ${escape(job.generation_attempt || 1)} · ${escape(String(job.usage?.total_tokens || 0))} tokens</small></article>`).join('') : '<p>No Business Tool generations yet.</p>';
   renderChecks(document.querySelector('#admin-validator-checks'), recentChecks.data, recentChecks.error);
 
   const userSelect = document.querySelector('#admin-user-select');

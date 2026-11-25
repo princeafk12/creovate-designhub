@@ -10,17 +10,17 @@ FLW_SECRET_KEY=
 FLW_SECRET_HASH=
 RESEND_API_KEY=
 EMAIL_FROM=
-# Reserved for the future live validator release. No live-search provider is active yet.
-# Do not add provider keys until the validator is released and the provider has been verified.
+# Validator uses public World Bank indicators and Gemini only, without paid search grounding.
 APP_BASE_URL=http://localhost:8788
-# Keep this false until Flutterwave test checkout, webhook verification,
-# duplicate-event handling, and admin/account checks have passed.
+# Set true only after the owner completes Flutterwave test checkout and webhook verification.
 PAYMENTS_READY=false
 # Promo Studio remains fail-closed until the owner completes provider and payment testing.
 FIREBASE_PROJECT_ID=creovate-designhub
 FIREBASE_WEB_API_KEY=
 FIREBASE_SERVICE_ACCOUNT_JSON=
 AI_PROVIDER=gemini
+# Keep unset/false for free-only Gemini operation. Set true only after approving and configuring a paid alternate provider.
+# AI_PAID_PROVIDER_ENABLED=false
 GEMINI_API_KEY=
 GEMINI_MODEL=
 GEMINI_INPUT_USD_PER_MILLION=
@@ -28,6 +28,9 @@ GEMINI_OUTPUT_USD_PER_MILLION=
 # Optional future provider; never set this in place of Gemini unless deliberately switching.
 # OPENAI_API_KEY=
 # OPENAI_MODEL=
+# Shared Business Tools and Validator master switches.
 PROMO_STUDIO_ENABLED=false
 GENERATION_PAUSED=true
+VALIDATOR_PAUSED=false
 AI_DAILY_LIMIT=5
+AI_GLOBAL_DAILY_LIMIT=10

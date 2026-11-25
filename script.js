@@ -5,11 +5,27 @@
     toggle.addEventListener('click', () => {
       const open = toggle.getAttribute('aria-expanded') === 'true';
       toggle.setAttribute('aria-expanded', String(!open));
+      toggle.setAttribute('aria-label', open ? 'Open website menu' : 'Close website menu');
       nav.classList.toggle('is-open', !open);
     });
     nav.addEventListener('click', event => {
-      if (event.target.matches('a') && window.innerWidth <= 760) {
+      if (event.target.closest('a')) {
         toggle.setAttribute('aria-expanded', 'false');
+        toggle.setAttribute('aria-label', 'Open website menu');
+        nav.classList.remove('is-open');
+      }
+    });
+    document.addEventListener('click', event => {
+      if (!nav.contains(event.target) && !toggle.contains(event.target)) {
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.setAttribute('aria-label', 'Open website menu');
+        nav.classList.remove('is-open');
+      }
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.setAttribute('aria-label', 'Open website menu');
         nav.classList.remove('is-open');
       }
     });
@@ -261,7 +277,7 @@
     const skills = String(data.get('skills') || '').trim();
     const resources = String(data.get('resources') || '').trim();
     output.hidden = false;
-    output.innerHTML = '<p>Researching current sources and preparing your report…</p>';
+    output.innerHTML = '<p>Checking public country indicators and preparing your report…</p>';
     try {
       const response = await fetch('/api/validator', {
         method: 'POST',
@@ -271,7 +287,8 @@
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || 'The live validator is unavailable.');
       const sources = (body.sources || []).map(source => `<li><a href="${escape(source.url)}" target="_blank" rel="noopener noreferrer">${escape(source.title || source.url)}</a><small>${escape(source.url)} · accessed ${escape(source.accessed_at || body.generated_at || '')}</small></li>`).join('');
-      result.innerHTML = `<h3>Source-backed validation report</h3>${renderAnalysis(body)}<div class="validator-sources"><h4>Live sources and dates</h4><ol>${sources || '<li>No source list was returned.</li>'}</ol></div><p class="validator-save-status">Saved to your customer account. Live evidence, estimates, recommendations and unknowns are kept distinct. This is guidance, not legal, tax, investment, or professional advice.</p>`;
+      const indicators = (body.indicators || []).map(item => `<li><strong>${escape(item.label)}:</strong> ${escape(Number(item.value).toLocaleString('en-US', {maximumFractionDigits: 2}))} · ${escape(item.year)}</li>`).join('');
+      result.innerHTML = `<h3>Business idea validation report</h3>${renderAnalysis(body)}${indicators ? `<div class="validator-sources"><h4>Country-level data used</h4><ul>${indicators}</ul></div>` : ''}<div class="validator-sources"><h4>World Bank public data sources and years</h4><ol>${sources || '<li>No source list was returned.</li>'}</ol></div>${body.evidence_limitations ? `<p class="validator-save-status"><strong>Limits:</strong> ${escape(body.evidence_limitations)}</p>` : ''}<p class="validator-save-status">Saved to your customer account. The Validator does not live-search competitors or verify local laws, prices or customer claims. This is guidance, not legal, tax, investment, or professional advice.</p>`;
     } catch (error) {
       result.innerHTML = `<p class="form-status is-error">${escape(error.message)}</p>`;
     }

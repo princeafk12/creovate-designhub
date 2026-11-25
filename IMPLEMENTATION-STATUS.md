@@ -1,41 +1,31 @@
-# CREOVATE DesignHub implementation status
+# CREOVATE DesignHub release status
 
-Updated 2026-11-23.
+Updated 2026-11-25.
 
-## Prepared in the project
+## Included in this release candidate
 
-- Login-first gate on the main product route.
-- Owner-only admin access for `olanitealabij2023@gmail.com`, with two stored security-question answers. The removed authenticator routes redirect to `/admin-login`.
-- Service/pricing updates come through the Firebase/Firestore compatibility adapter and refresh visible price, delivery, and description fields.
-- Firebase-backed server-side checkout route for creating an order and a unique Flutterwave hosted checkout link. It remains fail-closed while `PAYMENTS_READY=false`.
-- Flutterwave webhook route with legacy `verif-hash` and current signature support, transaction re-verification, amount/currency/reference checks, duplicate-event protection, and paid/failed email hooks.
-- Business-plan validator is clearly marked Coming Soon; the live-search route is intentionally disabled until the provider, source verification, safety checks, and spending controls are complete.
-- Customer activity is queried with an explicit account filter in the client and enforced by Firestore rules; the owner dashboard can review a selected account read-only.
-- Completed validator reports are saved in `validator_checks`; customers can reopen their full report and sources in their account, and the owner can open the saved details from the admin customer view.
-- Admin website editor now covers the editable offer message, public copy, and contact/portfolio/social links; changes are stored in `site_settings.content` and applied by the public site without a redeploy.
-- Admin now has a visible “View website” link and an owner-only customer password-reset form backed by `functions/api/admin/reset-password.js`.
-- The customer forgot-password panel now opens a prefilled WhatsApp request to `08084002972` without asking the customer to send a password.
-- The signed-in navigation changes from “Create account” to “My account”; the reset-password link remains available only on the pre-login page.
-- Legacy Supabase schema/migrations for transaction references, payment verification, webhook events, validator provider usage, and owner checks are preserved for reference; they are not evidence that the Firebase-backed paid workflow is complete.
-- Payment return page and Cloudflare Pages Functions environment template.
-- Audit report in `AUDIT-REPORT.md`.
-- Business Tools catalogue and Promo Studio input interface. Promo Studio now has a server-side paid-order path, but remains non-generating until the secure AI and payment workflow is configured and tested.
-- Promo Studio implementation: server-side Firebase token verification, provider-independent structured output with Gemini as the initial provider and OpenAI as an optional adapter, fail-closed feature flags, verified paid-order entitlement, input limits, per-customer daily allowance, quota/error recovery, Firestore job storage, customer-account result history, download, one controlled free regeneration, and owner usage/revenue monitoring. See `PROMO-STUDIO-SETUP.md`.
+- Customer account page with a visible **View website** link, links to the main site and Business Tools, account orders, saved results, and Validator history.
+- Three-line dropdown navigation on the home page, portfolio page, and customer account page. It lists the current public sections/pages and closes on selection, outside click, or Escape.
+- Server-owned Business Tools catalogue and prices: Promo Studio ₦1,000; Caption Studio ₦1,000; 30-Day Content Planner ₦1,500; Business Growth Kit ₦3,000.
+- One shared checkout route with fixed server prices, required-field validation, a live Flutterwave-key check, daily-capacity checks, and no payment request while a required service is unavailable.
+- One shared generation route, provider adapter boundary, product-specific output schemas, structured Gemini/OpenAI request formats, server-side output validation, paid-order ownership checks, entitlements, failed-generation restoration, and one controlled free regeneration per purchase.
+- Payment return page now generates and displays any of the four paid products; the customer account supports viewing, copying, downloading, retrying failed paid generations, and the one included regeneration.
+- Flutterwave webhook still authenticates the signature and re-verifies the transaction; orders must match the saved amount, currency and reference, and tool orders must match the server-configured product slug and exact product price before an entitlement is issued.
+- Free-only Validator using the World Bank public Indicators API plus the configured Gemini model. It is independent of paid checkout switches and has its own emergency `VALIDATOR_PAUSED` switch. It shares the AI daily capacity cap with paid tools and is limited to one report per account per day. Reports store dated source links, indicator values and evidence limits. It does not claim competitor search, current local law, or verification of customer claims.
+- Admin activity summaries cover all four tools, failed/completed generations, token usage and Validator reports.
+- Customer-side direct writes to orders and Validator reports are denied in `firebase.rules`; Pages Functions write these records with the server service account.
+- Privacy copy explains that Business Tool and Validator inputs go to the configured AI provider and that free-tier Gemini prompts may be used by Google to improve its products.
 
-## Verified locally
+## Not claimed as independently tested
 
-- All JavaScript files pass `node --check`.
-- No service-role, Flutterwave secret, Resend key, or Anthropic key is present in the project files.
-- The source contains the expected endpoint files and migration markers.
+- The owner reported that a Flutterwave checkout test succeeded. This code change has not been run through live payment, webhook, Gemini-generation, quota-failure, mobile-browser, or account-acceptance tests.
+- A test checkout is not proof of live payments. Flutterwave keys with `_TEST` in the secret are blocked by production checkout. A real launch requires the Production `FLW_SECRET_KEY` and matching live webhook hash.
+- Gemini free-tier availability and quotas are controlled by Google's project/account and can change. The Validator avoids paid search tools and has strict application caps, but the owner should confirm their Google AI Studio project remains on the Free tier. Free-tier prompts may be used to improve Google's products; customers are told not to submit confidential information.
+- `firebase.rules` must be published to Firestore Rules separately from the Cloudflare Pages deployment unless an authenticated Firebase Rules deployment tool is available.
+- Paid Business Tools require the Cloudflare Production values: Firebase server credentials, Gemini key/model, Flutterwave Live credentials, `PAYMENTS_READY=true`, `PROMO_STUDIO_ENABLED=true`, and `GENERATION_PAUSED=false`. The free Validator requires Firebase server credentials and the Gemini key/model; it does not require checkout activation. `VALIDATOR_PAUSED=true` is its independent emergency stop.
 
-## Still requires the owner
+## Operational notes
 
-- Firebase, Cloudflare, Flutterwave, Resend, and future AI-provider configuration.
-- Migrating the server functions from Supabase to Firebase, or explicitly configuring and retaining Supabase for those workflows.
-- Adding production secrets to the Cloudflare secret store.
-- Testing and enabling the prepared Gemini-first Promo Studio generation endpoint, saved results, payment entitlements, usage limits, regeneration and capacity pause.
-- Owner must create/configure the Gemini key, approved model, Firebase service-account secret and optional cost rates in Cloudflare; no provider key is present in the repository.
-- Complete the Flutterwave end-to-end test evidence: server-side ownership, signature verification, independent transaction verification, exact amount/currency/reference checks, duplicate-event protection, entitlement creation, and the account/admin acceptance tests before enabling Promo Studio checkout.
-- Testing real sign-in, payments, webhooks, AI provider errors, quota exhaustion, saved results, phone layouts, and the master instruction’s acceptance tests.
-
-No Promo Studio AI generation, live-payment activation, or connected-provider success is claimed until those steps are completed and evidenced.
+- No API secret is included in this repository. Keep Firebase, Gemini, and Flutterwave keys only in the Cloudflare secret store.
+- Prices for Business Tools are defined in `functions/_lib/business-tools.js`; the browser obtains prices and input definitions from `/api/tools/catalog`.
+- `AI_GLOBAL_DAILY_LIMIT` defaults to 10; `AI_DAILY_LIMIT` defaults to 5 per customer. Validator defaults to one per customer per day and 10 total per day.

@@ -1,4 +1,5 @@
 import {firestoreAdminCreate, firestoreAdminGet, firestoreAdminQuery, firestoreAdminWrite, json, safeEqual, sendEmail} from '../../_lib/firebase.js';
+import {BUSINESS_TOOLS} from '../../_lib/business-tools.js';
 
 const OWNER_EMAIL = 'olanitealabij2023@gmail.com';
 
@@ -81,8 +82,10 @@ export async function onRequestPost({request, env}) {
     const eventKey = `${payload?.event || 'unknown'}:${transaction.id}:${transactionStatus}`;
     const eventId = await eventDocumentId(eventKey);
     const currencyMatches = String(transaction.currency || '').toUpperCase() === String(order.currency || 'NGN').toUpperCase();
-    const amountMatches = Number(transaction.amount) >= Number(order.price);
+    const amountMatches = Number(transaction.amount) === Number(order.price);
     const referenceMatches = String(transaction.tx_ref) === String(order.tx_ref);
+    const product = order.order_type === 'tool' ? BUSINESS_TOOLS[order.product_slug] : null;
+    const productPriceMatches = order.order_type !== 'tool' || Boolean(product && Number(order.price) === product.price && String(order.currency || '').toUpperCase() === product.currency);
 
     if (['failed', 'cancelled'].includes(transactionStatus)) {
       if (order.payment_status !== 'paid' && order.payment_status !== 'failed') {
@@ -95,7 +98,7 @@ export async function onRequestPost({request, env}) {
       return new Response('', {status: 200});
     }
 
-    if (transactionStatus !== 'successful' || !amountMatches || !currencyMatches || !referenceMatches) return new Response('', {status: 200});
+    if (transactionStatus !== 'successful' || !amountMatches || !currencyMatches || !referenceMatches || !productPriceMatches) return new Response('', {status: 200});
     if (order.payment_status === 'paid') {
       await ensureToolEntitlement(env, order, order.payment_verified_at || new Date().toISOString());
       return new Response('', {status: 200});

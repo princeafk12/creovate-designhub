@@ -29,13 +29,11 @@ service cloud.firestore {
     }
     match /orders/{document} {
       allow read: if owner() || ownUser();
-      allow create: if newOwnUser();
-      allow update, delete: if owner() || ownUser();
+      allow write: if false;
     }
     match /validator_checks/{document} {
       allow read: if owner() || ownUser();
-      allow create: if newOwnUser();
-      allow update, delete: if owner() || ownUser();
+      allow write: if false;
     }
     match /generation_jobs/{document} {
       allow read: if owner() || ownUser();
@@ -45,6 +43,9 @@ service cloud.firestore {
       allow read, write: if false;
     }
     match /generation_usage/{document} {
+      allow read, write: if false;
+    }
+    match /validator_usage/{document} {
       allow read, write: if false;
     }
     match /flutterwave_events/{document} {

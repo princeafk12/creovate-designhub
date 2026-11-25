@@ -1,4 +1,5 @@
 import {firebaseUser, firestoreAdminGet, firestoreAdminWrite, json, sendEmail} from '../_lib/firebase.js';
+import {BUSINESS_TOOLS, toolBrief} from '../_lib/business-tools.js';
 
 const FALLBACK_SERVICES = {
   logo: {slug: 'logo', name: 'Logo design', launch_price: 5600, standard_price: 8000, rush_enabled: false, rush_percent: 30, delivery_time: '24 hours'},
@@ -7,10 +8,6 @@ const FALLBACK_SERVICES = {
   'social-pack': {slug: 'social-pack', name: 'Social media pack', launch_price: 24500, standard_price: 35000, rush_enabled: true, rush_percent: 30, delivery_time: '5 days'},
   'business-card': {slug: 'business-card', name: 'Business card', launch_price: 3500, standard_price: 5000, rush_enabled: false, rush_percent: 30, delivery_time: '24 hours'},
   'brand-kit': {slug: 'brand-kit', name: 'Full brand kit', launch_price: 42000, standard_price: 60000, rush_enabled: true, rush_percent: 30, delivery_time: '10 days'}
-};
-
-const BUSINESS_TOOLS = {
-  promo_studio: {slug: 'promo_studio', name: 'Promo Studio', price: 1000, currency: 'NGN'}
 };
 
 const clean = (value, max = 600) => String(value ?? '').trim().slice(0, max);
@@ -42,8 +39,20 @@ export async function onRequestPost({request, env}) {
       item = BUSINESS_TOOLS[productSlug];
       if (!item) return json({error: 'That business tool is not available.'}, 400);
       if (env.PROMO_STUDIO_ENABLED !== 'true' || env.GENERATION_PAUSED !== 'false') {
-        return json({error: 'Promo Studio checkout is not enabled yet. No payment was taken.'}, 503);
+        return json({error: 'Business tool checkout is temporarily paused. No payment was taken.'}, 503);
       }
+      if (/_TEST-/i.test(env.FLW_SECRET_KEY)) return json({error: 'Production checkout is still using a Flutterwave test key. Replace FLW_SECRET_KEY and FLW_SECRET_HASH with the Live-mode credentials first. No payment was taken.'}, 503);
+      const provider = String(env.AI_PROVIDER || 'gemini').toLowerCase();
+      const aiReady = provider === 'gemini' ? Boolean(env.GEMINI_API_KEY && env.GEMINI_MODEL) : provider === 'openai' && env.AI_PAID_PROVIDER_ENABLED === 'true' ? Boolean(env.OPENAI_API_KEY && env.OPENAI_MODEL) : false;
+      if (!aiReady) return json({error: 'AI generation is temporarily unavailable. No payment was taken.'}, 503);
+      const usageDay = new Date().toISOString().slice(0, 10);
+      const globalUsage = await firestoreAdminGet({env, collection: 'generation_usage', documentId: `all_${usageDay}`});
+      const userUsage = await firestoreAdminGet({env, collection: 'generation_usage', documentId: `${user.uid}_${usageDay}`});
+      const globalLimit = Math.max(1, Math.min(20, Number(env.AI_GLOBAL_DAILY_LIMIT || 10)));
+      const userLimit = Math.max(1, Math.min(20, Number(env.AI_DAILY_LIMIT || 5)));
+      if (Number(globalUsage?.count || 0) >= globalLimit || Number(userUsage?.count || 0) >= userLimit) return json({error: 'Today’s AI generation capacity is full. No payment was taken; please try again tomorrow.'}, 429);
+      try { Object.assign(brief, toolBrief(productSlug, brief)); }
+      catch (error) { return json({error: error.message}, 400); }
       price = item.price;
       currency = item.currency;
       customerName = customerName || brief.business_name || user.email;

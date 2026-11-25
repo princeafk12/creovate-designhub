@@ -123,7 +123,9 @@ export async function firestoreAdminQuery({env, collection, where = [], limit = 
 export async function firestoreAdminWrite({env, collection, documentId, fields, currentDocument}) {
   const payload = {fields: Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, firestoreValue(value)]))};
   if (currentDocument) payload.currentDocument = currentDocument;
-  const response = await fetch(firestoreUrl(env, collection, documentId), {method: 'PATCH', headers: {'content-type': 'application/json', authorization: `Bearer ${await adminAccessToken(env)}`}, body: JSON.stringify(payload)});
+  const url = new URL(firestoreUrl(env, collection, documentId));
+  for (const key of Object.keys(fields)) url.searchParams.append('updateMask.fieldPaths', key);
+  const response = await fetch(url, {method: 'PATCH', headers: {'content-type': 'application/json', authorization: `Bearer ${await adminAccessToken(env)}`}, body: JSON.stringify(payload)});
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.error?.message || `Firestore write failed (${response.status}).`);
   return body;

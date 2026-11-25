@@ -15,16 +15,19 @@
   <header class="site-header">
     <div class="wrap header-inner">
       <a class="logo" href="index.html" aria-label="CREOVATE DesignHub home">CREOVATE <span>—</span><br>DesignHub</a>
-      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav">Menu</button>
+      <button class="menu-toggle" type="button" aria-label="Open website menu" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
       <nav id="site-nav" class="site-nav" aria-label="Main navigation">
+        <a href="index.html#top">Home</a>
         <a href="index.html#services">Services</a>
         <a href="index.html#business-tools">Business Tools</a>
         <a href="index.html#brief">Send a brief</a>
         <a href="portfolio.html" aria-current="page">Portfolio</a>
         <a href="index.html#how">How it works</a>
+        <a href="index.html#validator">Validator</a>
         <a href="index.html#faq">FAQ</a>
+        <a href="index.html#policies">Policies</a>
         <a href="index.html#contact">Contact</a>
-        <a id="auth-nav-link" href="signup.html">Create account</a>
+        <a id="auth-nav-link" href="signup.html">Create account / My account</a>
       </nav>
     </div>
   </header>
@@ -40,7 +43,10 @@
   <script src="script.js"></script>
   <script src="firebase-config.js"></script>
   <script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore-compat.js"></script>
+  <script src="auth.js"></script>
   <script src="portfolio.js"></script>
+  <script>(async()=>{try{const {data}=await CREOVATE_AUTH.client().auth.getSession();if(data.session){const link=document.querySelector('#auth-nav-link');if(link){link.textContent='My account';link.href='account.html';}}}catch{}})();</script>
 </body>
 </html>

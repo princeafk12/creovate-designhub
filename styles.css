@@ -28,3 +28,31 @@
 .admin-summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;margin:18px 0}.admin-summary-card{display:grid;gap:6px;padding:14px;border:1px solid var(--line);border-radius:12px;background:#faf8ff}.admin-summary-card span{color:var(--muted);font-size:13px}.admin-summary-card strong{color:var(--purple);font-size:20px}.promo-actions{grid-column:1/-1;display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:7px}
 .portfolio-admin-list{display:grid;gap:10px;margin-top:20px}.portfolio-admin-item{display:grid;grid-template-columns:72px 1fr;gap:12px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px}.portfolio-admin-item img{width:72px;height:72px;object-fit:cover;border-radius:8px;background:#f0ecfa}.portfolio-admin-item div{display:grid;gap:4px}.portfolio-admin-item strong{color:var(--purple)}.portfolio-admin-item span,.portfolio-admin-item small{color:var(--muted);font-size:13px}.portfolio-admin-item small{font-size:12px}
 .art-card strong{color:var(--white);text-shadow:0 2px 12px rgba(0,0,0,.45)}
+.site-header .header-inner{position:relative}
+.menu-toggle{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:5px;width:46px;height:42px;padding:8px;margin-left:auto;border:1px solid rgba(255,255,255,.58);border-radius:10px;cursor:pointer}
+.menu-toggle span{display:block;width:23px;height:2px;border-radius:2px;background:var(--white);transition:transform .18s ease,opacity .18s ease}
+.menu-toggle[aria-expanded="true"] span:first-child{transform:translateY(7px) rotate(45deg)}
+.menu-toggle[aria-expanded="true"] span:nth-child(2){opacity:0}
+.menu-toggle[aria-expanded="true"] span:last-child{transform:translateY(-7px) rotate(-45deg)}
+.site-nav{display:none!important;position:absolute;top:calc(100% + 8px);right:0;z-index:30;width:min(360px,calc(100vw - 32px));max-height:min(74vh,560px);overflow:auto;flex-direction:column;gap:0;padding:9px;border:1px solid rgba(182,255,59,.45);border-radius:14px;background:#2d1457;box-shadow:0 16px 45px rgba(12,4,28,.35)}
+.site-nav.is-open{display:flex!important}
+.site-nav a{display:block;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.12);color:var(--white)!important;font-size:15px!important;text-decoration:none}
+.site-nav a:last-child{border-bottom:0}
+.site-nav a:hover,.site-nav a:focus-visible,.site-nav a[aria-current="page"]{color:var(--lime)!important;background:rgba(255,255,255,.06)}
+.signed-in .menu-toggle{display:flex!important}
+.signed-in .site-nav{position:absolute!important;top:calc(100% + 8px)!important;right:0!important;width:min(360px,calc(100vw - 32px))!important;max-width:none!important;margin:0!important;padding:9px!important;gap:0!important}
+.account-header{position:relative;align-items:center}
+.account-header-actions{display:flex;align-items:center;gap:10px}
+.account-header-actions .menu-toggle{margin:0}
+.account-site-nav{top:calc(100% + 8px);right:0}
+.auth-page .account-header-actions .button-outline-dark{display:inline-flex;align-items:center;justify-content:center;background:var(--lime);border:2px solid var(--lime);color:var(--ink);font-weight:900;box-shadow:0 8px 24px rgba(182,255,59,.24)}
+.auth-page .account-header-actions .button-outline-dark:hover,.auth-page .account-header-actions .button-outline-dark:focus-visible{background:#d0ff70;color:var(--ink)}
+.account-page-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}
+.tool-card .tool-form{margin-top:18px}
+.tool-card .form-grid{gap:12px}
+.tool-deliverables{padding-left:20px;color:var(--muted)}
+.tool-status-paused{color:#8b1717}
+.validator-result{display:grid;gap:16px;margin-top:24px;padding:22px;border:1px solid rgba(182,255,59,.45);border-radius:16px;background:rgba(15,8,30,.24);color:var(--white)}
+.validator-result>h3{color:var(--lime)}
+.saved-result-nested{padding-left:12px;border-left:2px solid rgba(106,45,255,.25)}
+@media(max-width:700px){.account-header{align-items:flex-start}.account-header-actions{gap:7px}.account-header-actions .button{font-size:13px;padding:9px 11px}.account-page-actions{align-items:stretch;flex-direction:column}.account-page-actions .button{width:100%;text-align:center}}
