@@ -113,7 +113,8 @@
   const message = (element, text, error = false) => { if (element) { element.textContent = text; element.classList.toggle('is-error', error); } };
   const requestedNext = fallback => {
     const next = new URLSearchParams(window.location.search).get('next') || '';
-    return next === 'index.html' || next.startsWith('index.html#') || next === 'account.html' ? next : fallback;
+    const allowed = new Set(['index.html', 'services.html', 'business-tools.html', 'brief.html', 'portfolio.html', 'how-it-works.html', 'validator.html', 'faq.html', 'policies.html', 'contact.html', 'account.html']);
+    return allowed.has(next) ? next : fallback;
   };
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[character]));
   const profileFor = async user => {

@@ -16,19 +16,7 @@
     <div class="wrap header-inner">
       <a class="logo" href="index.html" aria-label="CREOVATE DesignHub home">CREOVATE <span>—</span><br>DesignHub</a>
       <button class="menu-toggle" type="button" aria-label="Open website menu" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button>
-      <nav id="site-nav" class="site-nav" aria-label="Main navigation">
-        <a href="index.html#top">Home</a>
-        <a href="index.html#services">Services</a>
-        <a href="index.html#business-tools">Business Tools</a>
-        <a href="index.html#brief">Send a brief</a>
-        <a href="portfolio.html" aria-current="page">Portfolio</a>
-        <a href="index.html#how">How it works</a>
-        <a href="index.html#validator">Validator</a>
-        <a href="index.html#faq">FAQ</a>
-        <a href="index.html#policies">Policies</a>
-        <a href="index.html#contact">Contact</a>
-        <a id="auth-nav-link" href="signup.html">Create account / My account</a>
-      </nav>
+      <nav id="site-nav" class="site-nav" aria-label="Website pages"><a href="index.html">Home</a><a href="services.html">Services</a><a href="business-tools.html">Business Tools</a><a href="brief.html">Send a brief</a><a href="portfolio.html" aria-current="page">Portfolio</a><a href="how-it-works.html">How it works</a><a href="validator.html">Validator</a><a href="faq.html">FAQ</a><a href="policies.html">Policies</a><a href="contact.html">Contact</a><a href="account.html">My account</a></nav>
     </div>
   </header>
 
@@ -37,15 +25,15 @@
     <section class="section portfolio-main"><div class="wrap"><div class="portfolio-toolbar"><div id="portfolio-filters" class="portfolio-filters" aria-label="Filter portfolio"></div><p id="portfolio-count" class="portfolio-count" aria-live="polite"></p></div><div id="portfolio-grid" class="portfolio-grid"></div></div></section>
   </main>
 
-  <footer class="site-footer"><div class="wrap footer-grid"><div><a class="logo" href="index.html">CREOVATE <span>—</span><br>DesignHub</a><p>Premium design for businesses that want to look the part.</p></div><div><h2>Start a project</h2><p>Ready for a design that fits your brand? <a href="index.html#brief">Send your brief</a> or contact us on <a href="https://wa.me/2348084002972" target="_blank" rel="noopener noreferrer">WhatsApp</a>.</p><p><a href="index.html#policies">Terms &amp; Privacy</a></p></div></div><div class="wrap footer-bottom">© CREOVATE - DesignHub <span>No physical location is displayed.</span></div></footer>
+  <footer class="site-footer"><div class="wrap footer-grid"><div><a class="logo" href="index.html">CREOVATE <span>—</span><br>DesignHub</a><p>Premium design for businesses that want to look the part.</p></div><div><h2>Start a project</h2><p>Ready for a design that fits your brand? <a href="brief.html">Send your brief</a> or contact us on <a href="https://wa.me/2348084002972" target="_blank" rel="noopener noreferrer">WhatsApp</a>.</p><p><a href="policies.html">Terms &amp; Privacy</a></p></div></div><div class="wrap footer-bottom">© CREOVATE - DesignHub <span>No physical location is displayed.</span></div></footer>
 
   <div id="portfolio-modal" class="portfolio-modal" role="dialog" aria-modal="true" aria-labelledby="portfolio-modal-title" hidden><div class="portfolio-modal-inner"><button id="portfolio-close" class="portfolio-close" type="button" aria-label="Close preview">×</button><img id="portfolio-modal-image" src="" alt=""><div class="portfolio-modal-caption"><strong id="portfolio-modal-title"></strong><span id="portfolio-modal-category"></span></div></div></div>
-  <script src="script.js"></script>
   <script src="firebase-config.js"></script>
   <script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore-compat.js"></script>
   <script src="auth.js"></script>
+  <script src="script.js"></script>
   <script src="portfolio.js"></script>
   <script>(async()=>{try{const {data}=await CREOVATE_AUTH.client().auth.getSession();if(data.session){const link=document.querySelector('#auth-nav-link');if(link){link.textContent='My account';link.href='account.html';}}}catch{}})();</script>
 </body>

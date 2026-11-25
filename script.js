@@ -1,6 +1,6 @@
 (() => {
   const toggle = document.querySelector('.menu-toggle');
-  const nav = document.querySelector('#site-nav');
+  const nav = document.querySelector('.site-nav');
   if (toggle && nav) {
     toggle.addEventListener('click', () => {
       const open = toggle.getAttribute('aria-expanded') === 'true';
@@ -172,22 +172,17 @@
 
   service.addEventListener('change', updateQuote);
   rush.addEventListener('change', updateQuote);
+  const requestedService = new URLSearchParams(window.location.search).get('service');
+  if (requestedService) {
+    const requestedOption = Array.from(service.options).find(option => option.dataset.slug === requestedService);
+    if (requestedOption) service.value = requestedOption.value;
+  }
   updateQuote();
-  document.querySelectorAll('.service-card a[href^="https://wa.me/"]').forEach(link => {
-    link.textContent = 'Start this brief';
-    link.addEventListener('click', event => {
-      event.preventDefault();
-      service.value = link.closest('.service-card').querySelector('h3').textContent.trim();
-      updateQuote();
-      document.querySelector('#brief').scrollIntoView({behavior: 'smooth'});
-      service.focus({preventScroll: true});
-    });
-  });
 
   form.addEventListener('submit', async event => {
     event.preventDefault();
     const session = await window.CREOVATE_MEMBER.getSession();
-    if (!session) { window.location.href = 'signup.html?next=index.html%23brief'; return; }
+    if (!session) { window.location.href = 'signup.html?next=brief.html'; return; }
     const data = new FormData(form);
     const selected = selectedService();
     if (!selected) return;
@@ -266,7 +261,11 @@
 
   async function evaluate(currentForm, output) {
     const session = await window.CREOVATE_MEMBER.getSession();
-    if (!session) { window.location.href = 'signup.html?next=index.html%23validator'; return; }
+    if (!session) {
+      sessionStorage.setItem('creovate-validator-draft', JSON.stringify(Object.fromEntries(new FormData(currentForm).entries())));
+      window.location.href = 'signup.html?next=validator.html';
+      return;
+    }
     const data = new FormData(currentForm);
     const idea = String(data.get('idea') || '').trim();
     const audience = String(data.get('audience') || '').trim();
@@ -294,7 +293,22 @@
     }
     result.scrollIntoView({behavior: 'smooth', block: 'nearest'});
   }
-  window.CREOVATE_MEMBER.setup(form, gate, result);
+  (async () => {
+    form.hidden = false;
+    const draftKey = 'creovate-validator-draft';
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(draftKey) || 'null');
+      if (saved && typeof saved === 'object') {
+        for (const [name, value] of Object.entries(saved)) {
+          const field = form.elements.namedItem(name);
+          if (field) field.value = value;
+        }
+      }
+      sessionStorage.removeItem(draftKey);
+    } catch {}
+    const session = await window.CREOVATE_MEMBER.getSession();
+    gate.hidden = Boolean(session);
+  })();
 })();
 
 

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Send a design brief | CREOVATE DesignHub</title>
+  <meta name="description" content="Tell CREOVATE what your design project needs.">
+  <meta name="theme-color" content="#2D1457">
+  <link rel="canonical" href="https://creovate-designhub.pages.dev/brief.html">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip-link" href="#main">Skip to content</a><header class="site-header"><div class="wrap header-inner"><a class="logo" href="index.html" aria-label="CREOVATE DesignHub home">CREOVATE <span>—</span><br>DesignHub</a><button class="menu-toggle" type="button" aria-label="Open website menu" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button><nav id="site-nav" class="site-nav" aria-label="Website pages"><a href="index.html">Home</a><a href="services.html">Services</a><a href="business-tools.html">Business Tools</a><a href="brief.html" aria-current="page">Send a brief</a><a href="portfolio.html">Portfolio</a><a href="how-it-works.html">How it works</a><a href="validator.html">Validator</a><a href="faq.html">FAQ</a><a href="policies.html">Policies</a><a href="contact.html">Contact</a><a href="account.html">My account</a></nav></div></header>
+  <main id="main">
+<section id="brief" class="section section-light brief-section">
+      <div class="wrap narrow brief-wrap">
+        <p class="eyebrow eyebrow-dark">Start your order</p>
+        <h2 data-content-text="brief_heading">Tell us exactly what you want.</h2>
+        <p class="section-intro" data-content-text="brief_intro">Fill in this short brief and it will open in WhatsApp as one clear message. Include the look, wording, colours and references you have in mind so we can understand the job before we reply.</p>
+        <div id="brief-gate" class="member-gate" hidden><h3>Sign in before sending a brief.</h3><p>Create a free customer account or log in so your brief and order record stay connected to you.</p><a class="button button-dark" href="signup.html?next=brief.html">Create an account or log in</a></div>
+        <form id="brief-form" class="brief-form" hidden>
+          <div class="form-grid">
+            <label class="form-field">Your name<input name="name" type="text" autocomplete="name" required></label>
+            <label class="form-field">Email address<input name="email" type="email" autocomplete="email" required></label>
+            <label class="form-field">Business name<input name="business" type="text" required></label>
+            <label class="form-field">Brand name to show on the design<input name="brand" type="text" required></label>
+            <label class="form-field">What do you need?<select name="service" required><option value="" selected disabled>Choose a service</option><option data-launch="5600" data-standard="8000" data-rush="false">Logo design</option><option data-launch="3500" data-standard="5000" data-rush="false">Flyer / poster</option><option data-launch="2800" data-standard="4000" data-rush="false">Social media post</option><option data-launch="24500" data-standard="35000" data-rush="true">Social media pack</option><option data-launch="3500" data-standard="5000" data-rush="false">Business card</option><option data-launch="42000" data-standard="60000" data-rush="true">Full brand kit</option></select></label>
+            <label class="form-field">When do you need it?<input name="deadline" type="text" placeholder="For example: this Friday"></label>
+            <div class="price-summary form-field-full" aria-live="polite"><span class="price-label">Your price</span><strong id="brief-price">Choose a service</strong><span id="brief-price-note">The first 15 bookings after launch receive the launch price. Standard price applies after that.</span></div>
+            <label id="rush-option" class="rush-option form-field-full"><span><input name="rush" type="checkbox" disabled> Add rush delivery (+30%)</span><small id="rush-note">Rush delivery is available for the Social Media Pack and Full Brand Kit only.</small></label>
+            <label class="form-field form-field-full">Tell us about your business or brand<textarea name="description" rows="4" required placeholder="What do you do, who is it for, and what should people understand?"></textarea></label>
+            <label class="form-field form-field-full">Describe how you want it to look<textarea name="direction" rows="4" required placeholder="Colours, mood, layout, style, examples you like, and anything you want us to avoid."></textarea></label>
+            <label class="form-field form-field-full">What should the design say?<textarea name="copy" rows="4" placeholder="Final wording, offer, phone number, address, social handle, event details, or other text."></textarea></label>
+            <label class="form-field form-field-full">Reference link(s), if any<input name="references" type="url" placeholder="Paste a Drive, Instagram, Pinterest or other reference link"></label>
+          </div>
+          <div class="brief-actions"><button class="button button-dark" type="submit">Send brief on WhatsApp</button><p class="form-note">Your email is included in the WhatsApp message so we know where to reply. You can send photos or files in WhatsApp after the brief opens.</p></div>
+          <p id="brief-status" class="form-status" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+  </main>
+<footer class="site-footer"><div class="wrap footer-grid"><div><a class="logo" href="index.html">CREOVATE <span>—</span><br>DesignHub</a><p>Premium design and practical business tools for brands that want to look the part.</p></div><div><h2>Explore</h2><p><a href="services.html">Services</a> · <a href="business-tools.html">Business Tools</a> · <a href="portfolio.html">Portfolio</a><br><a href="contact.html">Contact</a> · <a href="policies.html">Terms &amp; Privacy</a></p><p><a href="https://wa.me/2348084002972" target="_blank" rel="noopener noreferrer">WhatsApp: 08084002972</a><br><a href="mailto:olanitealabij2023@gmail.com">olanitealabij2023@gmail.com</a></p></div></div><div class="wrap footer-bottom">© CREOVATE - DesignHub <span>No physical location is displayed.</span></div></footer>
+<script src="firebase-config.js"></script><script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore-compat.js"></script><script src="auth.js"></script><script src="site-content.js"></script><script src="script.js"></script>
+</body>
+</html>

@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://creovate-designhub.pages.dev/</loc>
-  </url>
-  <url>
-    <loc>https://creovate-designhub.pages.dev/portfolio.html</loc>
-  </url>
+  <url><loc>https://creovate-designhub.pages.dev/</loc></url>
+  <url><loc>https://creovate-designhub.pages.dev/services.html</loc></url>
+  <url><loc>https://creovate-designhub.pages.dev/business-tools.html</loc></url>
+  <url><loc>https://creovate-designhub.pages.dev/brief.html</loc></url>
+  <url><loc>https://creovate-designhub.pages.dev/portfolio.html</loc></url>
+  <url><loc>https://creovate-designhub.pages.dev/how-it-works.html</loc></url>
+  <url><loc>https://creovate-designhub.pages.dev/validator.html</loc></url>
+  <url><loc>https://creovate-designhub.pages.dev/faq.html</loc></url>
+  <url><loc>https://creovate-designhub.pages.dev/policies.html</loc></url>
+  <url><loc>https://creovate-designhub.pages.dev/contact.html</loc></url>
 </urlset>

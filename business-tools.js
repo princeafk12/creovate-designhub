@@ -25,7 +25,7 @@
       const button = form.querySelector('button[type="submit"]');
       const linkBox = form.querySelector('[data-checkout-link]');
       const session = await window.CREOVATE_MEMBER?.getSession?.();
-      if (!session) { window.location.href = `signup.html?next=${encodeURIComponent('index.html#business-tools')}`; return; }
+      if (!session) { window.location.href = `signup.html?next=${encodeURIComponent('business-tools.html')}`; return; }
       button.disabled = true;
       linkBox.innerHTML = '';
       status.textContent = 'Preparing your secure checkout…';
