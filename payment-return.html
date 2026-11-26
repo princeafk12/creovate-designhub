@@ -34,7 +34,7 @@
     const productNames = {promo_studio:'Promo Studio',caption_studio:'Caption Studio',content_planner:'30-Day Content Planner',business_growth_kit:'Business Growth Kit'};
     const label = key => String(key).replace(/[_-]+/g,' ').replace(/\b\w/g,letter=>letter.toUpperCase());
     const renderValue = value => Array.isArray(value) ? `<ul>${value.map(item => `<li>${renderValue(item)}</li>`).join('')}</ul>` : value && typeof value === 'object' ? `<div>${Object.entries(value).map(([key,item])=>`<section><h5>${escape(label(key))}</h5>${renderValue(item)}</section>`).join('')}</div>` : `<p>${escape(value).replace(/\n/g, '<br>')}</p>`;
-    const renderCampaign = (result, product) => `<div class="tool-result-heading"><h4>${escape(productNames[product] || 'Business Tool')} result</h4><span><button class="text-button" type="button" id="copy-campaign">Copy</button> <button class="text-button" type="button" id="download-campaign">Download</button></span></div>${Object.entries(result).map(([key,value]) => `<section><h5>${escape(label(key))}</h5>${renderValue(value)}</section>`).join('')}`;
+    const renderCampaign = (result, product) => `<div class="tool-result-heading"><h4>${escape(productNames[product] || 'CREOVATE for Business')} result</h4><span><button class="text-button" type="button" id="copy-campaign">Copy</button> <button class="text-button" type="button" id="download-campaign">Download</button></span></div>${Object.entries(result).map(([key,value]) => `<section><h5>${escape(label(key))}</h5>${renderValue(value)}</section>`).join('')}`;
     try {
       const user = await CREOVATE_AUTH.requireUser('payment-return.html');
       if (!user) return;

@@ -67,7 +67,7 @@ async function reserveUsage(env, userId) {
   const userUsageId = `${userId}_${day}`;
   const globalLimit = Math.max(1, Math.min(20, Number(env.AI_GLOBAL_DAILY_LIMIT || 10)));
   const userLimit = Math.max(1, Math.min(20, Number(env.AI_DAILY_LIMIT || 5)));
-  await reserveOne(env, globalId, {day, usage_type: 'all-tools'}, globalLimit, 'The site-wide Business Tools AI limit');
+  await reserveOne(env, globalId, {day, usage_type: 'all-tools'}, globalLimit, 'The site-wide CREOVATE for Business AI limit');
   try {
     await reserveOne(env, userUsageId, {user_id: userId, day}, userLimit, 'Your daily AI generation limit');
   } catch (error) {
@@ -123,9 +123,9 @@ async function claimRegeneration(env, user, jobId, nextJobId) {
 
 export async function onRequestPost({request, env}) {
   if (env.PROMO_STUDIO_ENABLED !== 'true' || env.GENERATION_PAUSED !== 'false' || env.PAYMENTS_READY !== 'true') return json({error: 'Business tool generation is temporarily paused. No payment was taken.'}, 503);
-  if (String(env.AI_PROVIDER || 'gemini').toLowerCase() === 'openai' && env.AI_PAID_PROVIDER_ENABLED !== 'true') return json({error: 'Business Tools are configured for the free Gemini provider. No generation has started.'}, 503);
+  if (String(env.AI_PROVIDER || 'gemini').toLowerCase() === 'openai' && env.AI_PAID_PROVIDER_ENABLED !== 'true') return json({error: 'CREOVATE for Business is configured for the free Gemini provider. No generation has started.'}, 503);
   const user = await firebaseUser(request, env);
-  if (!user) return json({error: 'Sign in before using Business Tools.'}, 401);
+  if (!user) return json({error: 'Sign in before using CREOVATE for Business.'}, 401);
   let jobId;
   let usageReservation;
   let claimed;

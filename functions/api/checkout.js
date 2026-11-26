@@ -21,7 +21,9 @@ export async function onRequestPost({request, env}) {
     const user = await firebaseUser(request, env);
     if (!user) return json({error: 'Sign in before creating an order.'}, 401);
     if (String(env.PAYMENTS_READY).toLowerCase() !== 'true') return json({error: 'Flutterwave checkout is not enabled yet. No payment was taken.'}, 503);
-    if (!env.FLW_SECRET_KEY) return json({error: 'Flutterwave test credentials are not configured yet.'}, 503);
+    if (!env.FLW_SECRET_KEY) return json({error: 'Flutterwave secret key is not configured. No payment was taken.'}, 503);
+    if (/_TEST-/i.test(env.FLW_SECRET_KEY)) return json({error: 'Live checkout is not ready. Replace the Flutterwave test key with the Live key in Cloudflare Production. No payment was taken.'}, 503);
+    if (!env.FLW_SECRET_HASH) return json({error: 'Live checkout is not ready. Add the matching Flutterwave Live webhook hash in Cloudflare Production. No payment was taken.'}, 503);
 
     const input = await request.json().catch(() => ({}));
     const serviceSlug = clean(input.service_slug, 80);
@@ -41,7 +43,6 @@ export async function onRequestPost({request, env}) {
       if (env.PROMO_STUDIO_ENABLED !== 'true' || env.GENERATION_PAUSED !== 'false') {
         return json({error: 'Business tool checkout is temporarily paused. No payment was taken.'}, 503);
       }
-      if (/_TEST-/i.test(env.FLW_SECRET_KEY)) return json({error: 'Production checkout is still using a Flutterwave test key. Replace FLW_SECRET_KEY and FLW_SECRET_HASH with the Live-mode credentials first. No payment was taken.'}, 503);
       const provider = String(env.AI_PROVIDER || 'gemini').toLowerCase();
       const aiReady = provider === 'gemini' ? Boolean(env.GEMINI_API_KEY && env.GEMINI_MODEL) : provider === 'openai' && env.AI_PAID_PROVIDER_ENABLED === 'true' ? Boolean(env.OPENAI_API_KEY && env.OPENAI_MODEL) : false;
       if (!aiReady) return json({error: 'AI generation is temporarily unavailable. No payment was taken.'}, 503);

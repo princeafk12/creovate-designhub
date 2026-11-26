@@ -182,7 +182,7 @@
   ].map(([label, value]) => `<div class="admin-summary-card"><span>${escape(label)}</span><strong>${escape(value)}</strong></div>`).join('');
   const promoJobsBox = document.querySelector('#admin-promo-jobs');
   const productNames = {promo_studio:'Promo Studio',caption_studio:'Caption Studio',content_planner:'30-Day Content Planner',business_growth_kit:'Business Growth Kit'};
-  if (promoJobsBox) promoJobsBox.innerHTML = recentPromoJobs.error ? `<p class="form-status is-error">${escape(recentPromoJobs.error.message)}</p>` : toolJobs.length ? toolJobs.map(job => `<article class="order-card"><strong>${escape(productNames[job.product] || 'Business Tool')}</strong><span>${escape(job.status || 'unknown')}</span><small>${formatDate(job.completed_at || job.created_at)} · Attempt ${escape(job.generation_attempt || 1)} · ${escape(String(job.usage?.total_tokens || 0))} tokens</small></article>`).join('') : '<p>No Business Tool generations yet.</p>';
+  if (promoJobsBox) promoJobsBox.innerHTML = recentPromoJobs.error ? `<p class="form-status is-error">${escape(recentPromoJobs.error.message)}</p>` : toolJobs.length ? toolJobs.map(job => `<article class="order-card"><strong>${escape(productNames[job.product] || 'CREOVATE for Business')}</strong><span>${escape(job.status || 'unknown')}</span><small>${formatDate(job.completed_at || job.created_at)} · Attempt ${escape(job.generation_attempt || 1)} · ${escape(String(job.usage?.total_tokens || 0))} tokens</small></article>`).join('') : '<p>No CREOVATE for Business generations yet.</p>';
   renderChecks(document.querySelector('#admin-validator-checks'), recentChecks.data, recentChecks.error);
 
   const userSelect = document.querySelector('#admin-user-select');
