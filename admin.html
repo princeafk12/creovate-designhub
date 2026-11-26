@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin dashboard | CREOVATE DesignHub</title><link rel="stylesheet" href="styles.css"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin dashboard | CREOVATE DesignHub</title><link rel="stylesheet" href="styles.css">  <script>document.documentElement.classList.add('auth-pending')</script>
+</head>
 <body class="auth-page"><main class="auth-shell admin-shell wrap">
   <header class="account-header"><a class="logo auth-logo" href="index.html">CREOVATE <span>—</span><br>DesignHub</a><div class="admin-header-actions"><a class="button button-outline-dark" href="index.html" target="_blank" rel="noopener noreferrer">View website</a><button class="button button-outline-dark" data-logout type="button">Log out</button></div></header>
   <section class="auth-card"><p class="eyebrow eyebrow-dark">Owner controls</p><h1>Manage the website.</h1><p>Only the exact owner account, with the required second-factor assurance, can open this page.</p>
@@ -16,7 +17,7 @@
   <section class="auth-card"><h2>Business-tools monitoring</h2><p class="form-note">This summary tracks paid revenue, completed and failed generations across the four tools, recorded provider usage, and Validator reports.</p><div id="admin-business-summary" class="admin-summary-grid"></div><div id="admin-promo-jobs" class="orders-list"></div></section>
   <section class="auth-card"><h2>Recent validator checks</h2><div id="admin-validator-checks" class="orders-list"></div></section>
 </main>
-<script src="firebase-config.js"></script><script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore-compat.js"></script><script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-storage-compat.js"></script><script src="auth.js"></script><script src="admin-enhancements.js"></script>
+<script src="firebase-config.js"></script><script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-app-compat.js"></script><script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-auth-compat.js"></script><script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-firestore-compat.js"></script><script src="https://www.gstatic.com/firebasejs/13.2.0/firebase-storage-compat.js"></script><script src="auth.js"></script><script src="site-access.js" data-mode="admin"></script><script src="admin-enhancements.js"></script>
 </body>
 </html>
 

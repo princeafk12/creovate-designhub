@@ -111,11 +111,19 @@
     return window.creovateFirebaseClient;
   };
   const message = (element, text, error = false) => { if (element) { element.textContent = text; element.classList.toggle('is-error', error); } };
-  const requestedNext = fallback => {
-    const next = new URLSearchParams(window.location.search).get('next') || '';
-    const allowed = new Set(['index.html', 'services.html', 'business-tools.html', 'brief.html', 'portfolio.html', 'how-it-works.html', 'validator.html', 'faq.html', 'policies.html', 'contact.html', 'account.html']);
-    return allowed.has(next) ? next : fallback;
+  const safeNext = value => {
+    const next = String(value || '');
+    const allowed = new Set(['index.html', 'services.html', 'business-tools.html', 'brief.html', 'portfolio.html', 'how-it-works.html', 'validator.html', 'faq.html', 'policies.html', 'contact.html', 'account.html', 'payment-return.html']);
+    const match = next.match(/^([a-z-]+\.html)(\?service=[a-z0-9-]+)?(#[-a-zA-Z0-9_]+)?$/);
+    if (!match || !allowed.has(match[1])) return '';
+    if (match[2] && (match[1] !== 'brief.html' || !/^\?service=(logo|flyer|social-post|social-pack|business-card|brand-kit)$/.test(match[2]))) return '';
+    return next;
   };
+  const requestedNext = fallback => safeNext(new URLSearchParams(window.location.search).get('next')) || fallback;
+  document.querySelectorAll('[data-auth-switch]').forEach(link => {
+    const next = safeNext(new URLSearchParams(window.location.search).get('next'));
+    if (next) link.href = `${link.dataset.authSwitch}?next=${encodeURIComponent(next)}`;
+  });
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[character]));
   const profileFor = async user => {
     if (!user) return null;
@@ -127,17 +135,17 @@
   };
   const requireUser = async next => {
     const user = firebaseAuth.currentUser || await ready;
-    if (!user) { window.location.href = `signup.html${next ? `?next=${encodeURIComponent(next)}` : ''}`; return null; }
+    if (!user) { const destination = safeNext(next); window.location.href = `login.html${destination ? `?next=${encodeURIComponent(destination)}` : ''}`; return null; }
     return normalizeUser(user);
   };
   const requireAdmin = async () => {
-    const user = await requireUser();
-    if (!user) return null;
+    const user = firebaseAuth.currentUser || await ready;
+    if (!user) { window.location.href = 'admin-login.html'; return null; }
     const profile = await profileFor(user);
     if (!profile || profile.role !== 'admin' || String(user.email).toLowerCase() !== OWNER_EMAIL) {
       await client().auth.signOut(); window.location.href = 'admin-login.html?error=admin'; return null;
     }
-    return {user, profile};
+    return {user: normalizeUser(user), profile};
   };
 
   document.querySelectorAll('[data-logout]').forEach(button => button.addEventListener('click', async () => { await client().auth.signOut(); window.location.href = 'index.html'; }));
