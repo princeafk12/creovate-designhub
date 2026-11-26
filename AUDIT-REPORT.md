@@ -1,5 +1,7 @@
 # CREOVATE Digital Space audit
 
+> Historical snapshot from 2026-11-16. Its findings describe the repository at that date and have been superseded by `IMPLEMENTATION-STATUS.md` for the current feature set.
+
 Date: 2026-11-16
 Scope: existing repository and the public Cloudflare Pages address.
 

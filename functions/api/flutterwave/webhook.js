@@ -1,5 +1,6 @@
 import {firestoreAdminCreate, firestoreAdminGet, firestoreAdminQuery, firestoreAdminWrite, json, safeEqual, sendEmail} from '../../_lib/firebase.js';
 import {BUSINESS_TOOLS} from '../../_lib/business-tools.js';
+import {releaseOrderCapacity} from '../../_lib/generation-usage.js';
 
 const OWNER_EMAIL = 'olanitealabij2023@gmail.com';
 
@@ -91,6 +92,7 @@ export async function onRequestPost({request, env}) {
       if (order.payment_status !== 'paid' && order.payment_status !== 'failed') {
         const failedOrder = {...order, payment_status: 'failed', updated_at: new Date().toISOString()};
         await firestoreAdminWrite({env, collection: 'orders', documentId: order.id, fields: failedOrder});
+        if (order.order_type === 'tool') await releaseOrderCapacity(env, order.id);
         await firestoreAdminCreate({env, collection: 'flutterwave_events', documentId: eventId, fields: {id: eventId, provider: 'flutterwave', event_key: eventKey, transaction_id: String(transaction.id), tx_ref: String(transaction.tx_ref), status: transactionStatus, received_at: new Date().toISOString(), processed_at: new Date().toISOString()}});
         const customerEmail = order.customer_email || order.brief?.email;
         if (customerEmail) await notify(env, {to: [customerEmail], subject: `Payment could not be confirmed for ${order.service_name}`, text: `Your payment for ${order.service_name} could not be confirmed. Please try again or contact CREOVATE.`, html: `<p>Your payment for <strong>${escapeHtml(order.service_name)}</strong> could not be confirmed. Please try again or contact CREOVATE.</p>`, idempotencyKey: `payment-failed-${order.id}`});

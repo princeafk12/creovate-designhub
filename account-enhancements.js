@@ -39,13 +39,25 @@
     return `<article class="order-card promo-history-card"><strong>${escape(toolNames[job.product] || 'CREOVATE for Business')}</strong><span>${escape(job.status || 'saved')}</span><small>${formatDate(job.completed_at || job.created_at)} · Attempt ${escape(job.generation_attempt || 1)}</small>${buttons}${job.status === 'completed' ? `<details class="validator-history-details"><summary>Open saved result</summary><div class="validator-history-report">${sections || '<p>No result was stored.</p>'}</div></details>` : job.status === 'failed' ? `<small>${escape(job.error || 'Generation did not complete. Retry when the AI service is available.')}</small>` : ''}<span hidden data-job-json="${escape(job.id)}">${escape(JSON.stringify(result))}</span></article>`;
   };
 
-  const [{data: orders, error: ordersError}, {data: jobs, error: jobsError}, {data: checks, error: checksError}] = await Promise.all([
-    db.from('orders').select('*').eq('user_id', user.id).order('created_at', {ascending: false}).limit(50),
-    db.from('generation_jobs').select('*').eq('user_id', user.id).order('created_at', {ascending: false}).limit(50),
-    db.from('validator_checks').select('*').eq('user_id', user.id).order('created_at', {ascending: false}).limit(25)
-  ]);
-  if (ordersBox) ordersBox.innerHTML = ordersError ? `<p class="form-status is-error">${escape(ordersError.message)}</p>` : !orders?.length ? '<p>No saved briefs or purchases yet. Your activity will appear here.</p>' : orders.map(order => `<article class="order-card"><strong>${escape(order.service_name || toolNames[order.product_slug] || 'CREOVATE order')}</strong><span>${formatMoney(order.price)}${order.rush ? ' · Rush' : ''}</span><small>${formatDate(order.created_at)} · ${escape(order.status || 'new')} · Payment: ${escape(order.payment_status || 'pending')}${order.generation_status ? ` · Generation: ${escape(order.generation_status)}` : ''}</small>${order.brief?.name ? `<small>Brief: ${escape(order.brief.name)}</small>` : ''}</article>`).join('');
-  if (resultsBox) resultsBox.innerHTML = jobsError ? `<p class="form-status is-error">${escape(jobsError.message)}</p>` : !jobs?.length ? '<p>No saved CREOVATE for Business results yet.</p>' : jobs.map(renderJob).join('');
+  const {data: sessionData} = await db.auth.getSession();
+  const session = sessionData.session;
+  let orders = [];
+  let jobs = [];
+  let checks = [];
+  let loadError = '';
+  try {
+    if (!session?.access_token) throw new Error('Your sign-in session expired. Please log in again.');
+    const response = await fetch('/api/account/data', {headers: {authorization: `Bearer ${session.access_token}`}, cache: 'no-store'});
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || 'Saved account activity is temporarily unavailable.');
+    orders = Array.isArray(body.orders) ? body.orders : [];
+    jobs = Array.isArray(body.jobs) ? body.jobs : [];
+    checks = Array.isArray(body.checks) ? body.checks : [];
+  } catch (error) {
+    loadError = error.message || 'Saved account activity is temporarily unavailable.';
+  }
+  if (ordersBox) ordersBox.innerHTML = loadError ? `<p class="form-status is-error">${escape(loadError)}</p>` : !orders.length ? '<p>No saved briefs or purchases yet. Your activity will appear here.</p>' : orders.map(order => `<article class="order-card"><strong>${escape(order.service_name || toolNames[order.product_slug] || 'CREOVATE order')}</strong><span>${formatMoney(order.price)}${order.rush ? ' · Rush' : ''}</span><small>${formatDate(order.created_at)} · ${escape(order.status || 'new')} · Payment: ${escape(order.payment_status || 'pending')}${order.generation_status ? ` · Generation: ${escape(order.generation_status)}` : ''}</small>${order.brief?.name ? `<small>Brief: ${escape(order.brief.name)}</small>` : ''}</article>`).join('');
+  if (resultsBox) resultsBox.innerHTML = loadError ? `<p class="form-status is-error">${escape(loadError)}</p>` : !jobs.length ? '<p>No saved CREOVATE for Business results yet.</p>' : jobs.map(renderJob).join('');
   resultsBox?.addEventListener('click', async event => {
     const button = event.target.closest('[data-action]');
     if (!button) return;
@@ -61,15 +73,19 @@
     }
     const session = (await db.auth.getSession()).data.session;
     if (!session) return;
-    button.disabled = true; button.textContent = 'Regenerating…';
+    const relatedOrderId = action === 'retry' ? button.dataset.orderId : jobs.find(job => job.id === jobId)?.order_id;
+    const relatedOrder = orders.find(order => order.id === relatedOrderId);
+    if (!relatedOrder?.adult_confirmed && !window.confirm('Confirm that you are 18 or older before continuing to AI generation.')) return;
+    button.disabled = true; button.textContent = action === 'retry' ? 'Starting generation…' : 'Regenerating…';
     const bodyInput = action === 'retry' ? {order_id: button.dataset.orderId} : {action: 'regenerate', job_id: jobId};
+    if (!relatedOrder?.adult_confirmed) bodyInput.adult_confirmed = true;
     const response = await fetch('/api/generate-tool', {method: 'POST', headers: {'content-type': 'application/json', authorization: `Bearer ${session.access_token}`}, body: JSON.stringify(bodyInput)});
     const body = await response.json().catch(() => ({}));
     if (!response.ok) { button.disabled = false; button.textContent = body.error || (action === 'retry' ? 'Retry paid generation' : 'Regenerate'); return; }
     window.location.reload();
   });
-  if (checksBox) checksBox.innerHTML = checksError ? `<p class="form-status is-error">${escape(checksError.message)}</p>` : !checks?.length ? '<p>No Validator checks yet.</p>' : checks.map(check => {
+  if (checksBox) checksBox.innerHTML = loadError ? `<p class="form-status is-error">${escape(loadError)}</p>` : !checks.length ? '<p>No Validator checks yet.</p>' : checks.map(check => {
     const count = Array.isArray(check.result?.sources) ? check.result.sources.length : 0;
-    return `<article class="order-card"><strong>${escape(check.verdict || 'Validator report')}</strong><span>${escape(check.provider || 'Free public-data Validator')}${count ? ` · ${count} sources` : ''}</span><small>${formatDate(check.created_at)} · ${escape(check.idea)}</small>${renderSavedCheck(check)}</article>`;
+    return `<article class="order-card"><strong>${escape(check.verdict || 'Validator report')}</strong><span>${escape(check.provider || 'Public-data Validator')}${count ? ` · ${count} sources` : ''}</span><small>${formatDate(check.created_at)} · ${escape(check.idea)}</small>${renderSavedCheck(check)}</article>`;
   }).join('');
 })();

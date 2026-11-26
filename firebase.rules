@@ -27,6 +27,10 @@ service cloud.firestore {
       allow read: if resource.data.published == true || owner();
       allow create, update, delete: if owner();
     }
+    match /portfolio_images/{imageId} {
+      allow read: if owner() || get(/databases/$(database)/documents/portfolio_items/$(imageId)).data.published == true;
+      allow create, update, delete: if owner();
+    }
     match /orders/{document} {
       allow read: if owner() || ownUser();
       allow write: if false;

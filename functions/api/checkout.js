@@ -1,5 +1,7 @@
-import {firebaseUser, firestoreAdminGet, firestoreAdminWrite, json, sendEmail} from '../_lib/firebase.js';
+import {firebaseUser, firestoreAdminGet, firestoreAdminQuery, firestoreAdminWrite, json, sendEmail} from '../_lib/firebase.js';
 import {BUSINESS_TOOLS, toolBrief} from '../_lib/business-tools.js';
+import {releaseGenerationCapacity, releaseOrderCapacity, reserveGenerationCapacity} from '../_lib/generation-usage.js';
+import {ageConfirmationReceived, geminiRegionAllowed} from '../_lib/ai-access.js';
 
 const FALLBACK_SERVICES = {
   logo: {slug: 'logo', name: 'Logo design', launch_price: 5600, standard_price: 8000, rush_enabled: false, rush_percent: 30, delivery_time: '24 hours'},
@@ -17,6 +19,8 @@ async function readDocument(env, collection, documentId, fallback = null) {
 }
 
 export async function onRequestPost({request, env}) {
+  let allocatedReservation;
+  let allocatedOrderId;
   try {
     const user = await firebaseUser(request, env);
     if (!user) return json({error: 'Sign in before creating an order.'}, 401);
@@ -32,6 +36,8 @@ export async function onRequestPost({request, env}) {
     const brief = Object.fromEntries(Object.entries(briefInput).map(([key, value]) => [key, clean(value)]));
     const rush = Boolean(input.rush);
     const isToolOrder = Boolean(productSlug);
+    const txRef = `creovate-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+    const orderId = crypto.randomUUID();
     let item;
     let price;
     let currency = 'NGN';
@@ -46,17 +52,21 @@ export async function onRequestPost({request, env}) {
       const provider = String(env.AI_PROVIDER || 'gemini').toLowerCase();
       const aiReady = provider === 'gemini' ? Boolean(env.GEMINI_API_KEY && env.GEMINI_MODEL) : provider === 'openai' && env.AI_PAID_PROVIDER_ENABLED === 'true' ? Boolean(env.OPENAI_API_KEY && env.OPENAI_MODEL) : false;
       if (!aiReady) return json({error: 'AI generation is temporarily unavailable. No payment was taken.'}, 503);
-      const usageDay = new Date().toISOString().slice(0, 10);
-      const globalUsage = await firestoreAdminGet({env, collection: 'generation_usage', documentId: `all_${usageDay}`});
-      const userUsage = await firestoreAdminGet({env, collection: 'generation_usage', documentId: `${user.uid}_${usageDay}`});
-      const globalLimit = Math.max(1, Math.min(20, Number(env.AI_GLOBAL_DAILY_LIMIT || 10)));
-      const userLimit = Math.max(1, Math.min(20, Number(env.AI_DAILY_LIMIT || 5)));
-      if (Number(globalUsage?.count || 0) >= globalLimit || Number(userUsage?.count || 0) >= userLimit) return json({error: 'Today’s AI generation capacity is full. No payment was taken; please try again tomorrow.'}, 429);
+      if (provider === 'gemini' && !geminiRegionAllowed(request)) return json({error: 'AI checkout is not available in your current region with the configured Gemini service. No payment was taken.'}, 403);
+      if (!ageConfirmationReceived(input.adult_confirmed)) return json({error: 'Confirm that you are 18 or older before using AI tools. No payment was taken.'}, 400);
+      delete brief.adult_confirmed;
       try { Object.assign(brief, toolBrief(productSlug, brief)); }
       catch (error) { return json({error: error.message}, 400); }
       price = item.price;
       currency = item.currency;
       customerName = customerName || brief.business_name || user.email;
+      const now = Date.now();
+      const toolOrders = await firestoreAdminQuery({env, collection: 'orders', where: [['order_type', 'tool']], limit: 100});
+      await Promise.all(toolOrders.filter(order => order.payment_status === 'pending' && order.usage_reservation?.status === 'reserved' && Date.parse(order.usage_reservation.expires_at || '') <= now).map(order => releaseOrderCapacity(env, order.id)));
+      allocatedReservation = await reserveGenerationCapacity(env, user.uid, {
+        reservationId: orderId,
+        expiresAt: new Date(now + 30 * 60 * 1000).toISOString()
+      });
     } else {
       if (!serviceSlug || !brief.name || !brief.email) return json({error: 'Service, name, and email are required.'}, 400);
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(brief.email)) return json({error: 'Enter a valid email address.'}, 400);
@@ -73,8 +83,7 @@ export async function onRequestPost({request, env}) {
       price = rush && rushEnabled ? Math.round(basePrice * (1 + rushRate / 100)) : basePrice;
       customerName = customerName || brief.name;
     }
-    const txRef = `creovate-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
-    const orderId = crypto.randomUUID();
+    allocatedOrderId = orderId;
     const createdAt = new Date().toISOString();
     const order = {
       id: orderId,
@@ -89,6 +98,8 @@ export async function onRequestPost({request, env}) {
       tx_ref: txRef,
       rush: rush && rushEnabled,
       brief,
+      ...(isToolOrder ? {adult_confirmed: true, adult_confirmed_at: createdAt} : {}),
+      ...(allocatedReservation ? {usage_reservation: allocatedReservation} : {}),
       status: 'new',
       payment_status: 'pending',
       created_at: createdAt
@@ -106,12 +117,14 @@ export async function onRequestPost({request, env}) {
         redirect_url: `${appBaseUrl}/payment-return.html?order_id=${encodeURIComponent(orderId)}`,
         customer: {email: user.email || brief.email, name: customerName},
         meta: {order_id: orderId, user_id: user.uid, order_type: order.order_type, product_slug: productSlug || serviceSlug},
-        customizations: {title: 'CREOVATE DesignHub', description: String(item.name || productSlug || serviceSlug)}
+        customizations: {title: 'CREOVATE DesignHub', description: String(item.name || productSlug || serviceSlug)},
+        ...(isToolOrder ? {configuration: {session_duration: 20, max_retry_attempt: 3}, link_expiration: new Date(Date.now() + 20 * 60 * 1000).toISOString()} : {})
       })
     });
     const paymentBody = await payment.json().catch(() => ({}));
     if (!payment.ok || paymentBody.status !== 'success' || !paymentBody.data?.link) {
       await firestoreAdminWrite({env, collection: 'orders', documentId: orderId, fields: {...order, status: 'cancelled', payment_status: 'failed', payment_error: `Flutterwave returned ${payment.status}`}}).catch(() => {});
+      if (allocatedReservation) await releaseOrderCapacity(env, orderId);
       return json({error: 'Flutterwave could not start checkout.'}, 502);
     }
 
@@ -124,6 +137,11 @@ export async function onRequestPost({request, env}) {
     });
     return json({order_id: orderId, tx_ref: txRef, checkout_url: paymentBody.data.link});
   } catch (error) {
+    if (allocatedReservation) {
+      const order = allocatedOrderId ? await firestoreAdminGet({env, collection: 'orders', documentId: allocatedOrderId}).catch(() => null) : null;
+      if (order) await releaseOrderCapacity(env, allocatedOrderId);
+      else await releaseGenerationCapacity(env, allocatedReservation);
+    }
     const message = error instanceof Error ? error.message : 'Checkout failed.';
     const configError = /configuration|not configured/i.test(message);
     return json({error: configError ? message : 'Checkout failed.'}, configError ? 503 : 500);

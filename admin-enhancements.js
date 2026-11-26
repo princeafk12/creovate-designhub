@@ -26,10 +26,10 @@
     validator_heading: 'Check your idea with current country data.',
     validator_intro: 'Free limited checks use public World Bank country indicators with Gemini analysis. They do not live-search competitors or confirm local laws, customer claims, or current prices; assumptions and evidence gaps are labelled.',
     portfolio_heading: 'See real designs in our full portfolio.',
-    portfolio_intro: 'Browse logos, flyers, social posts and brand work in the CREOVATE Google Drive folder.',
+    portfolio_intro: 'Browse logos, flyers, social posts and brand work in the CREOVATE portfolio.',
     footer_tagline: 'Premium design for businesses that want to look the part.',
     whatsapp_url: 'https://wa.me/2348084002972',
-    portfolio_url: 'https://drive.google.com/drive/folders/1Lfp6BQux8iWElEoBP7RST6SMnOsolIB3?usp=drive_link',
+    portfolio_url: 'https://creovate-designhub.pages.dev/portfolio.html',
     facebook_url: 'https://web.facebook.com/creovatehq7',
     youtube_url: 'https://www.youtube.com/@creovatedigitalspace',
     x_url: 'https://x.com/creovate123',
@@ -228,9 +228,8 @@
   document.querySelector('#user-password-form')?.addEventListener('submit', async event => {
     event.preventDefault();
     const userId = passwordSelect?.value;
-    const newPassword = document.querySelector('#temporary-password')?.value || '';
     if (!userId) { setStatus('#password-status', 'Choose a customer account first.', true); return; }
-    setStatus('#password-status', 'Updating the customer password…');
+    setStatus('#password-status', 'Sending the customer a secure reset link…');
     try {
       const {data: sessionData} = await db.auth.getSession();
       const token = sessionData.session?.access_token;
@@ -238,12 +237,11 @@
       const response = await fetch('/api/admin/reset-password', {
         method: 'POST',
         headers: {'content-type': 'application/json', authorization: `Bearer ${token}`},
-        body: JSON.stringify({user_id: userId, new_password: newPassword})
+        body: JSON.stringify({user_id: userId})
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || 'Password reset failed.');
-      setStatus('#password-status', body.message || 'Temporary password set. Give it to the customer privately.');
-      document.querySelector('#temporary-password').value = '';
+      setStatus('#password-status', body.message || 'The reset email was sent.');
     } catch (error) {
       setStatus('#password-status', error.message, true);
     }
@@ -251,21 +249,42 @@
 
   const portfolioForm = document.querySelector('#portfolio-upload-form');
   const portfolioList = document.querySelector('#portfolio-admin-list');
-  const portfolioStorage = window.firebase?.storage ? window.firebase.storage() : null;
   const portfolioFirestore = window.firebase?.firestore ? window.firebase.firestore() : null;
-  const safeFileName = value => String(value || 'portfolio-image').toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 90) || 'portfolio-image';
   const portfolioId = () => typeof crypto?.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  const renderPortfolioItems = snapshot => {
+  const portfolioPlaceholder = 'portfolio/placeholder.svg';
+  const loadPortfolioImage = async (imageId, imageNode) => {
+    if (!imageId || !imageNode || imageNode.dataset.loaded === 'true') return;
+    imageNode.dataset.loaded = 'true';
+    try {
+      const snapshot = await portfolioFirestore.collection('portfolio_images').doc(imageId).get();
+      const image = snapshot.data()?.data_url;
+      if (image) imageNode.src = image;
+    } catch {
+      imageNode.dataset.loaded = 'false';
+    }
+  };
+  const renderPortfolioItems = async snapshot => {
     if (!portfolioList) return;
     const items = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
-    portfolioList.innerHTML = items.length ? items.map(item => `<article class="portfolio-admin-item"><img src="${escape(item.image_url)}" alt=""><div><strong>${escape(item.title)}</strong><span>${escape(item.category || 'Other')}</span><small>${item.published ? 'Published' : 'Hidden'} · ${escape(formatDate(item.created_at))}</small></div></article>`).join('') : '<p>No uploaded portfolio pieces yet.</p>';
+    portfolioList.innerHTML = items.length ? items.map(item => `<article class="portfolio-admin-item"><img src="${escape(item.image_url || portfolioPlaceholder)}" data-admin-image-id="${escape(item.image_id || '')}" alt=""><div><strong>${escape(item.title)}</strong><span>${escape(item.category || 'Other')}</span><small>${item.published ? 'Published' : 'Hidden'} · ${escape(formatDate(item.created_at))}</small></div></article>`).join('') : '<p>No uploaded portfolio pieces yet.</p>';
+    const images = [...portfolioList.querySelectorAll('img[data-admin-image-id]')].filter(image => image.dataset.adminImageId);
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver(entries => entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        observer.unobserve(entry.target);
+        loadPortfolioImage(entry.target.dataset.adminImageId, entry.target);
+      }), {rootMargin: '160px'});
+      images.forEach(image => observer.observe(image));
+    } else {
+      await Promise.all(images.map(image => loadPortfolioImage(image.dataset.adminImageId, image)));
+    }
   };
   const loadPortfolioItems = async () => {
     if (!portfolioList || !portfolioFirestore) return;
     portfolioList.innerHTML = '<p>Loading uploaded portfolio pieces…</p>';
     try {
       const snapshot = await portfolioFirestore.collection('portfolio_items').orderBy('created_at', 'desc').limit(50).get();
-      renderPortfolioItems(snapshot);
+      await renderPortfolioItems(snapshot);
     } catch (error) {
       portfolioList.innerHTML = `<p class="form-status is-error">${escape(error.message || 'Could not load portfolio pieces.')}</p>`;
     }
@@ -275,25 +294,54 @@
     const title = document.querySelector('#portfolio-title')?.value.trim() || '';
     const category = document.querySelector('#portfolio-category')?.value || 'Other';
     const file = document.querySelector('#portfolio-image')?.files?.[0];
-    if (!portfolioStorage || !portfolioFirestore) { setStatus('#portfolio-upload-status', 'Portfolio storage is not available yet. Enable Firebase Storage and reload this page.', true); return; }
+    if (!portfolioFirestore) { setStatus('#portfolio-upload-status', 'Portfolio database is not available. Refresh the page and sign in again.', true); return; }
     if (!title || !file) { setStatus('#portfolio-upload-status', 'Add a title and choose an image first.', true); return; }
     if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) { setStatus('#portfolio-upload-status', 'Use a JPG, PNG or WebP image.', true); return; }
     if (file.size > 10 * 1024 * 1024) { setStatus('#portfolio-upload-status', 'That image is larger than 10 MB. Choose a smaller file.', true); return; }
     const id = portfolioId();
-    const storagePath = `portfolio/${id}-${safeFileName(file.name)}`;
     const submitButton = portfolioForm.querySelector('button[type="submit"]');
     if (submitButton) submitButton.disabled = true;
-    setStatus('#portfolio-upload-status', 'Uploading and publishing…');
+    setStatus('#portfolio-upload-status', 'Compressing the image for the portfolio…');
     try {
-      const upload = await portfolioStorage.ref(storagePath).put(file, {contentType: file.type, customMetadata: {title, category}});
-      const imageUrl = await upload.ref.getDownloadURL();
-      await portfolioFirestore.collection('portfolio_items').doc(id).set({id, title, category, image_url: imageUrl, storage_path: storagePath, published: true, created_at: new Date().toISOString()});
+      if (!window.createImageBitmap) throw new Error('This browser cannot compress the image. Try the latest Chrome or Edge.');
+      const bitmap = await createImageBitmap(file);
+      let width = Math.min(bitmap.width, 1800);
+      let height = Math.round(bitmap.height * (width / bitmap.width));
+      let blob;
+      for (let attempt = 0; attempt < 9; attempt++) {
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(width));
+        canvas.height = Math.max(1, Math.round(height));
+        const context = canvas.getContext('2d', {alpha: true});
+        if (!context) throw new Error('Could not prepare this image in the browser.');
+        context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+        blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', Math.max(.5, .84 - attempt * .05)));
+        if (blob && blob.size <= 600 * 1024) break;
+        width *= .82;
+        height *= .82;
+      }
+      bitmap.close?.();
+      if (!blob || blob.size > 600 * 1024) throw new Error('This image is too detailed to fit the free database limit after compression. Choose a smaller image.');
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(new Error('Could not read the compressed image.'));
+        reader.readAsDataURL(blob);
+      });
+      if (dataUrl.length > 850_000) throw new Error('The compressed image is still too large. Choose a smaller image.');
+      setStatus('#portfolio-upload-status', 'Saving and publishing…');
+      const createdAt = new Date().toISOString();
+      const itemRef = portfolioFirestore.collection('portfolio_items').doc(id);
+      const imageRef = portfolioFirestore.collection('portfolio_images').doc(id);
+      await portfolioFirestore.runTransaction(async transaction => {
+        transaction.set(imageRef, {data_url: dataUrl, content_type: blob.type || 'image/webp', created_at: createdAt});
+        transaction.set(itemRef, {id, title, category, image_id: id, published: true, created_at: createdAt});
+      });
       portfolioForm.reset();
-      setStatus('#portfolio-upload-status', 'Published. Refresh the public portfolio to see it.');
+      setStatus('#portfolio-upload-status', 'Published. Refresh the portfolio page to see it.');
       await loadPortfolioItems();
     } catch (error) {
       setStatus('#portfolio-upload-status', error.message || 'Portfolio upload failed.', true);
-      try { await portfolioStorage.ref(storagePath).delete(); } catch {}
     } finally {
       if (submitButton) submitButton.disabled = false;
     }

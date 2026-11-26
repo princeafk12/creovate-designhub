@@ -1,5 +1,6 @@
 import {publicToolCatalog} from '../../_lib/business-tools.js';
 import {firebaseUser, firestoreAdminGet, json} from '../../_lib/firebase.js';
+import {geminiRegionAllowed} from '../../_lib/ai-access.js';
 
 export async function onRequestGet({request, env}) {
   const provider = String(env.AI_PROVIDER || 'gemini').toLowerCase();
@@ -18,7 +19,8 @@ export async function onRequestGet({request, env}) {
       if (Number(userUsage?.count || 0) >= userLimit) capacityAvailable = false;
     }
   } catch { capacityAvailable = false; }
-  const enabled = env.PROMO_STUDIO_ENABLED === 'true' && env.GENERATION_PAUSED === 'false' && env.PAYMENTS_READY === 'true' && aiReady && livePaymentConfigReady && capacityAvailable;
-  const notice = !livePaymentConfigReady ? 'Live checkout is not ready: Production needs the Flutterwave Live secret key and matching live webhook hash.' : !enabled ? 'Checkout is temporarily paused while payment, AI availability or daily capacity is checked.' : '';
+  const regionAllowed = provider !== 'gemini' || geminiRegionAllowed(request);
+  const enabled = env.PROMO_STUDIO_ENABLED === 'true' && env.GENERATION_PAUSED === 'false' && env.PAYMENTS_READY === 'true' && aiReady && livePaymentConfigReady && capacityAvailable && regionAllowed;
+  const notice = !regionAllowed ? 'AI tools are not available in your current region with the configured Gemini service.' : !livePaymentConfigReady ? 'Live checkout is not ready: Production needs the Flutterwave Live secret key and matching live webhook hash.' : !enabled ? 'Checkout is temporarily paused while payment, AI availability or daily capacity is checked.' : '';
   return json({tools: publicToolCatalog(), enabled, notice}, 200, {'cache-control': 'private, no-store'});
 }

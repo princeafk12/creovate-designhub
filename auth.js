@@ -94,7 +94,7 @@
         try {
           const result = await firebaseAuth.createUserWithEmailAndPassword(email, password);
           if (options.data?.full_name) await result.user.updateProfile({displayName: options.data.full_name});
-          await firestore.collection('profiles').doc(result.user.uid).set({id: result.user.uid, email: result.user.email, role: result.user.email.toLowerCase() === OWNER_EMAIL ? 'admin' : 'customer', created_at: new Date().toISOString()}, {merge: true});
+          await firestore.collection('profiles').doc(result.user.uid).set({id: result.user.uid, email: result.user.email, role: result.user.email.toLowerCase() === OWNER_EMAIL ? 'admin' : 'customer', adult_confirmed: options.data?.adult_confirmed === true, ...(options.data?.adult_confirmed === true ? {adult_confirmed_at: new Date().toISOString()} : {}), created_at: new Date().toISOString()}, {merge: true});
           return {data: {user: normalizeUser(result.user), session: await sessionFor(result.user)}, error: null};
         } catch (error) { return {data: null, error: statusFor(error)}; }
       },
@@ -160,7 +160,7 @@
   signupForm?.addEventListener('submit', async event => {
     event.preventDefault(); const status = document.querySelector('[data-auth-message]'); const data = new FormData(signupForm);
     if (data.get('password') !== data.get('confirm_password')) { message(status, 'The passwords do not match.', true); return; }
-    message(status, 'Creating your account…'); const {data: result, error} = await client().auth.signUp({email: data.get('email'), password: data.get('password'), options: {data: {full_name: data.get('name')}}});
+    message(status, 'Creating your account…'); const {data: result, error} = await client().auth.signUp({email: data.get('email'), password: data.get('password'), options: {data: {full_name: data.get('name'), adult_confirmed: data.get('adult_confirmed') === 'on'}}});
     if (error) { message(status, error.message, true); return; }
     if (result.session) window.location.href = requestedNext('account.html'); else message(status, 'Account created. You can now log in.');
   });

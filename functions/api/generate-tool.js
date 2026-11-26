@@ -1,11 +1,13 @@
 import {firebaseUser, firestoreAdminCreate, firestoreAdminGet, firestoreAdminGetWithMeta, firestoreAdminWrite, json} from '../_lib/firebase.js';
 import {BUSINESS_TOOLS, toolBrief, validateToolResult} from '../_lib/business-tools.js';
-
-const dayKey = () => new Date().toISOString().slice(0, 10);
+import {releaseGenerationCapacity, reserveGenerationCapacity} from '../_lib/generation-usage.js';
+import {ageConfirmationReceived, geminiRegionAllowed} from '../_lib/ai-access.js';
 const clean = value => String(value ?? '').trim().slice(0, 180);
 
 function promptFor(product, brief) {
-  return `${product.prompt}\nReturn only valid JSON matching this schema: ${JSON.stringify(product.schema)}\n\nCustomer brief:\n${JSON.stringify(brief, null, 2)}`;
+  const promptBrief = {...brief};
+  delete promptBrief.contact;
+  return `${product.prompt}\nReturn only valid JSON matching this schema: ${JSON.stringify(product.schema)}\n\nCustomer brief:\n${JSON.stringify(promptBrief, null, 2)}`;
 }
 
 function parseOutput(text, provider) {
@@ -53,37 +55,6 @@ async function generate({product, brief, env}) {
   return {result: validateToolResult(product.slug, parseOutput(output, provider)), usage: usageFor(body, env, provider)};
 }
 
-async function reserveOne(env, id, fields, limit, label) {
-  const snapshot = await firestoreAdminGetWithMeta({env, collection: 'generation_usage', documentId: id});
-  const current = snapshot?.data || {...fields, count: 0};
-  if (Number(current.count || 0) >= limit) throw new Error(`${label} has reached today's free-use limit. Try again tomorrow.`);
-  await firestoreAdminWrite({env, collection: 'generation_usage', documentId: id, fields: {...current, count: Number(current.count || 0) + 1, updated_at: new Date().toISOString()}, currentDocument: snapshot ? {updateTime: snapshot.updateTime} : {exists: false}});
-  return id;
-}
-
-async function reserveUsage(env, userId) {
-  const day = dayKey();
-  const globalId = `all_${day}`;
-  const userUsageId = `${userId}_${day}`;
-  const globalLimit = Math.max(1, Math.min(20, Number(env.AI_GLOBAL_DAILY_LIMIT || 10)));
-  const userLimit = Math.max(1, Math.min(20, Number(env.AI_DAILY_LIMIT || 5)));
-  await reserveOne(env, globalId, {day, usage_type: 'all-tools'}, globalLimit, 'The site-wide CREOVATE for Business AI limit');
-  try {
-    await reserveOne(env, userUsageId, {user_id: userId, day}, userLimit, 'Your daily AI generation limit');
-  } catch (error) {
-    await releaseUsage(env, globalId);
-    throw error;
-  }
-  return {globalId, userUsageId};
-}
-
-async function releaseUsage(env, id) {
-  try {
-    const snapshot = await firestoreAdminGetWithMeta({env, collection: 'generation_usage', documentId: id});
-    if (snapshot?.data) await firestoreAdminWrite({env, collection: 'generation_usage', documentId: id, fields: {...snapshot.data, count: Math.max(0, Number(snapshot.data.count || 1) - 1), updated_at: new Date().toISOString()}, currentDocument: {updateTime: snapshot.updateTime}});
-  } catch {}
-}
-
 async function claimOrder(env, user, orderId, jobId) {
   const snapshot = await firestoreAdminGetWithMeta({env, collection: 'orders', documentId: orderId});
   const order = snapshot?.data;
@@ -92,6 +63,7 @@ async function claimOrder(env, user, orderId, jobId) {
   if (order.order_type !== 'tool' || !product) throw new Error('That order is not a supported business tool.');
   if (order.payment_status !== 'paid') throw new Error('Payment is still being verified. No generation has started.');
   if (Number(order.price) !== product.price || order.currency !== product.currency) throw new Error('The saved order price does not match this tool. Contact CREOVATE before retrying.');
+  if (Number(order.generation_attempts || 0) >= 3) throw new Error('This paid order has reached its three generation attempts. Contact CREOVATE for help.');
   if (order.generation_status === 'completed' && order.generation_job_id) {
     const existing = await firestoreAdminGet({env, collection: 'generation_jobs', documentId: order.generation_job_id});
     if (existing?.status === 'completed') return {order, product, existing, jobId: existing.id};
@@ -101,11 +73,12 @@ async function claimOrder(env, user, orderId, jobId) {
   const entitlement = entitlementSnapshot?.data;
   if (!entitlement || entitlement.user_id !== user.uid || entitlement.product_slug !== product.slug || entitlement.order_id !== orderId || entitlement.status !== 'available') throw new Error('The verified generation entitlement is not ready. Wait for payment verification and try again.');
   const now = new Date().toISOString();
-  const updatedOrder = {...order, generation_status: 'processing', generation_job_id: jobId, generation_started_at: now};
+  const generationAttempt = Number(order.generation_attempts || 0) + 1;
+  const updatedOrder = {...order, generation_status: 'processing', generation_job_id: jobId, generation_started_at: now, generation_attempts: generationAttempt};
   await firestoreAdminWrite({env, collection: 'orders', documentId: orderId, fields: updatedOrder, currentDocument: {updateTime: snapshot.updateTime}});
   const updatedEntitlement = {...entitlement, status: 'processing', job_id: jobId, processing_started_at: now};
   await firestoreAdminWrite({env, collection: 'entitlements', documentId: orderId, fields: updatedEntitlement, currentDocument: {updateTime: entitlementSnapshot.updateTime}});
-  return {order: updatedOrder, product, entitlement: updatedEntitlement, jobId, brief: order.brief};
+  return {order: updatedOrder, product, entitlement: updatedEntitlement, jobId, brief: order.brief, generationAttempt};
 }
 
 async function claimRegeneration(env, user, jobId, nextJobId) {
@@ -118,7 +91,7 @@ async function claimRegeneration(env, user, jobId, nextJobId) {
   const order = await firestoreAdminGet({env, collection: 'orders', documentId: job.order_id});
   if (!order || order.user_id !== user.uid || order.product_slug !== product.slug || order.payment_status !== 'paid') throw new Error('A verified payment is required for regeneration.');
   await firestoreAdminWrite({env, collection: 'generation_jobs', documentId: jobId, fields: {...job, regeneration_used: true, regeneration_job_id: nextJobId, updated_at: new Date().toISOString()}, currentDocument: {updateTime: snapshot.updateTime}});
-  return {product, brief: job.brief, orderId: job.order_id, original: job};
+  return {product, brief: job.brief, order, orderId: job.order_id, original: job};
 }
 
 export async function onRequestPost({request, env}) {
@@ -133,6 +106,8 @@ export async function onRequestPost({request, env}) {
   let regeneration = false;
   try {
     const input = await request.json().catch(() => ({}));
+    const provider = String(env.AI_PROVIDER || 'gemini').toLowerCase();
+    if (provider === 'gemini' && !geminiRegionAllowed(request)) return json({error: 'AI generation is not available in your current region with the configured Gemini service.'}, 403);
     jobId = crypto.randomUUID();
     regeneration = input.action === 'regenerate';
     if (regeneration) {
@@ -145,27 +120,48 @@ export async function onRequestPost({request, env}) {
       claimed = await claimOrder(env, user, orderId, jobId);
       if (claimed.existing) return json({job_id: claimed.jobId, product: claimed.product.slug, status: 'completed', result: claimed.existing.result, existing: true});
     }
+    if (!claimed.order?.adult_confirmed && !ageConfirmationReceived(input.adult_confirmed)) throw new Error('Confirm that you are 18 or older before using AI tools.');
+    if (claimed.order && !claimed.order.adult_confirmed) {
+      claimed.order = {...claimed.order, adult_confirmed: true, adult_confirmed_at: new Date().toISOString()};
+      await firestoreAdminWrite({env, collection: 'orders', documentId: claimed.order.id, fields: {adult_confirmed: true, adult_confirmed_at: claimed.order.adult_confirmed_at}});
+    }
     const brief = toolBrief(claimed.product.slug, claimed.brief);
-    usageReservation = await reserveUsage(env, user.uid);
+    if (regeneration) {
+      usageReservation = await reserveGenerationCapacity(env, user.uid);
+    } else if (claimed.order.usage_reservation?.status === 'reserved') {
+      usageReservation = {prepaid: true, reservation: claimed.order.usage_reservation};
+    } else {
+      const reservation = await reserveGenerationCapacity(env, user.uid, {reservationId: claimed.order.id});
+      try {
+        await firestoreAdminWrite({env, collection: 'orders', documentId: claimed.order.id, fields: {usage_reservation: reservation}});
+        usageReservation = {prepaid: true, reservation};
+        claimed.order = {...claimed.order, usage_reservation: reservation};
+      } catch (error) {
+        await releaseGenerationCapacity(env, reservation);
+        throw error;
+      }
+    }
     const now = new Date().toISOString();
-    await firestoreAdminWrite({env, collection: 'generation_jobs', documentId: jobId, fields: {id: jobId, order_id: claimed.orderId || claimed.order?.id, user_id: user.uid, product: claimed.product.slug, status: 'processing', generation_attempt: regeneration ? 2 : 1, created_at: now, brief}});
+    const generationAttempt = regeneration ? Number(claimed.original.generation_attempt || 1) + 1 : claimed.generationAttempt;
+    await firestoreAdminWrite({env, collection: 'generation_jobs', documentId: jobId, fields: {id: jobId, order_id: claimed.orderId || claimed.order?.id, user_id: user.uid, product: claimed.product.slug, status: 'processing', generation_attempt: generationAttempt, created_at: now, brief}});
     const generated = await generate({product: claimed.product, brief, env});
+    if (claimed.product.slug === 'promo_studio' && brief.contact) generated.result.contact_information = brief.contact;
     const completedAt = new Date().toISOString();
-    const completed = {id: jobId, order_id: claimed.orderId || claimed.order?.id, user_id: user.uid, product: claimed.product.slug, status: 'completed', generation_attempt: regeneration ? 2 : 1, created_at: now, completed_at: completedAt, brief, result: generated.result, usage: generated.usage, regeneration_used: false};
+    const completed = {id: jobId, order_id: claimed.orderId || claimed.order?.id, user_id: user.uid, product: claimed.product.slug, status: 'completed', generation_attempt: generationAttempt, created_at: now, completed_at: completedAt, brief, result: generated.result, usage: generated.usage, regeneration_used: false};
     await firestoreAdminWrite({env, collection: 'generation_jobs', documentId: jobId, fields: completed});
     if (regeneration) {
       await firestoreAdminWrite({env, collection: 'generation_jobs', documentId: originalJobId, fields: {regeneration_used: true, regeneration_job_id: jobId, updated_at: completedAt}});
     } else {
       await firestoreAdminWrite({env, collection: 'entitlements', documentId: claimed.order.id, fields: {...claimed.entitlement, status: 'consumed', consumed_at: completedAt, job_id: jobId, updated_at: completedAt}});
-      await firestoreAdminWrite({env, collection: 'orders', documentId: claimed.order.id, fields: {...claimed.order, generation_status: 'completed', generated_at: completedAt, generation_job_id: jobId}});
+      await firestoreAdminWrite({env, collection: 'orders', documentId: claimed.order.id, fields: {...claimed.order, generation_status: 'completed', generated_at: completedAt, generation_job_id: jobId, ...(usageReservation?.reservation ? {usage_reservation: {...usageReservation.reservation, status: 'consumed', consumed_at: completedAt}} : {})}});
     }
     return json({job_id: jobId, product: claimed.product.slug, status: 'completed', result: generated.result, usage: generated.usage});
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Generation failed.';
-    if (usageReservation) await Promise.all([releaseUsage(env, usageReservation.globalId), releaseUsage(env, usageReservation.userUsageId)]);
+    if (usageReservation && !usageReservation.prepaid) await releaseGenerationCapacity(env, usageReservation);
     if (jobId && claimed) {
       const now = new Date().toISOString();
-      try { await firestoreAdminWrite({env, collection: 'generation_jobs', documentId: jobId, fields: {id: jobId, order_id: claimed.orderId || claimed.order?.id, user_id: user.uid, product: claimed.product.slug, status: 'failed', created_at: now, failed_at: now, error: message.slice(0, 300)}}); } catch {}
+      try { await firestoreAdminWrite({env, collection: 'generation_jobs', documentId: jobId, fields: {id: jobId, order_id: claimed.orderId || claimed.order?.id, user_id: user.uid, product: claimed.product.slug, status: 'failed', generation_attempt: regeneration ? Number(claimed.original?.generation_attempt || 1) + 1 : claimed.generationAttempt, created_at: now, failed_at: now, error: message.slice(0, 300)}}); } catch {}
       if (regeneration && originalJobId && claimed.original) {
         try { await firestoreAdminWrite({env, collection: 'generation_jobs', documentId: originalJobId, fields: {regeneration_used: false, regeneration_job_id: null, updated_at: now}}); } catch {}
       } else if (claimed.entitlement && claimed.order) {
@@ -177,7 +173,7 @@ export async function onRequestPost({request, env}) {
       }
     }
     const providerStatus = Number(error?.providerStatus || 0);
-    const status = providerStatus === 429 || /quota|rate limit|resource exhausted|429/i.test(message) ? 429 : /not configured|configuration/i.test(message) ? 503 : /already|still being|not available|required|limit|incomplete|too long|regeneration|match this tool/i.test(message) ? 409 : 502;
+    const status = providerStatus === 429 || /quota|rate limit|resource exhausted|429/i.test(message) ? 429 : /not configured|configuration/i.test(message) ? 503 : /18 or older/i.test(message) ? 400 : /already|still being|not available|required|limit|incomplete|too long|regeneration|match this tool|attempts|contact CREOVATE/i.test(message) ? 409 : 502;
     return json({error: message}, status);
   }
 }

@@ -281,7 +281,7 @@
       const response = await fetch('/api/validator', {
         method: 'POST',
         headers: {'content-type': 'application/json', authorization: `Bearer ${session.access_token}`},
-        body: JSON.stringify({idea, audience, location, stage, goal, budget, skills, resources})
+        body: JSON.stringify({idea, audience, location, stage, goal, budget, skills, resources, adult_confirmed: data.get('adult_confirmed') === 'on'})
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || 'The live validator is unavailable.');

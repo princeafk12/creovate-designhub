@@ -1,4 +1,5 @@
 import {firebaseUser, firestoreAdminCreate, firestoreAdminGetWithMeta, firestoreAdminWrite, json} from '../_lib/firebase.js';
+import {ageConfirmationReceived, geminiRegionAllowed} from '../_lib/ai-access.js';
 
 const text = {type: 'string'};
 const texts = {type: 'array', items: text};
@@ -55,7 +56,7 @@ async function indicatorFor(countryCode, indicator) {
 async function reserve(env, collection, id, limit, initial = {}) {
   const snapshot = await firestoreAdminGetWithMeta({env, collection, documentId: id});
   const current = snapshot?.data || {count: 0, day: dayKey(), ...initial};
-  if (Number(current.count || 0) >= limit) throw new Error('The free Validator limit has been reached for today. Please try again tomorrow.');
+  if (Number(current.count || 0) >= limit) throw new Error('You have used today’s Validator assessment. Please try again tomorrow.');
   const fields = {...current, count: Number(current.count || 0) + 1, updated_at: new Date().toISOString()};
   await firestoreAdminWrite({env, collection, documentId: id, fields, currentDocument: snapshot ? {updateTime: snapshot.updateTime} : {exists: false}});
   return id;
@@ -90,7 +91,7 @@ function validateAnalysis(value) {
     if (rule.type === 'integer' && (!Number.isInteger(item) || item < rule.minimum || item > rule.maximum)) throw new Error(`The AI report contains an invalid score at ${path}.`);
   };
   try { check(value, schema); }
-  catch (error) { throw new Error(`${error.message} Your free Validator use has been restored.`); }
+  catch (error) { throw new Error(`${error.message} Your assessment allowance has been restored.`); }
   return value;
 }
 
@@ -112,11 +113,13 @@ async function generate({env, input, country, countrySource, indicatorsData}) {
 }
 
 export async function onRequestPost({request, env}) {
-  if (env.VALIDATOR_PAUSED === 'true') return json({error: 'The free Validator is temporarily paused.'}, 503);
-  if (String(env.AI_PROVIDER || 'gemini').toLowerCase() !== 'gemini' || !env.GEMINI_API_KEY || !env.GEMINI_MODEL) return json({error: 'The free Gemini Validator is not configured.'}, 503);
+  if (env.VALIDATOR_PAUSED === 'true') return json({error: 'The Validator is temporarily paused.'}, 503);
+  if (String(env.AI_PROVIDER || 'gemini').toLowerCase() !== 'gemini' || !env.GEMINI_API_KEY || !env.GEMINI_MODEL) return json({error: 'The Validator AI service is not configured.'}, 503);
+  if (!geminiRegionAllowed(request)) return json({error: 'The Validator is not available in your current region with the configured Gemini service.'}, 403);
   const user = await firebaseUser(request, env);
   if (!user) return json({error: 'Sign in before using the Validator.'}, 401);
   const inputRaw = await request.json().catch(() => ({}));
+  if (!ageConfirmationReceived(inputRaw.adult_confirmed)) return json({error: 'Confirm that you are 18 or older before using the Validator.'}, 400);
   const input = Object.fromEntries(['idea', 'audience', 'location', 'stage', 'goal', 'budget', 'skills', 'resources'].map(key => [key, String(inputRaw?.[key] || '').trim().slice(0, key === 'idea' ? 240 : 400)]));
   const required = ['idea', 'audience', 'location', 'stage', 'goal'];
   if (required.some(key => !input[key])) return json({error: 'Complete the business idea, customer, country, stage and goal fields.'}, 400);
@@ -143,7 +146,7 @@ export async function onRequestPost({request, env}) {
     const sourceList = [countrySource, ...indicatorsData.map(item => item.source)];
     const report = {analysis: generated.analysis, input, country: {name: country.name, code: country.iso2Code}, indicators: indicatorsData, sources: sourceList, generated_at: createdAt, evidence_limitations: 'Country-level indicators are not proof of demand for a specific business and may be delayed. This Validator does not live-search competitors, verify customer claims, or check local laws, licences, taxes or prices. Validate these directly before investing.', usage: generated.usage};
     const id = crypto.randomUUID();
-    const record = {id, user_id: user.uid, idea: input.idea, score: generated.analysis.overall_viability.score, verdict: generated.analysis.overall_viability.label, provider: 'Gemini + World Bank public indicators (limited free use)', created_at: createdAt, result: report};
+    const record = {id, user_id: user.uid, idea: input.idea, score: generated.analysis.overall_viability.score, verdict: generated.analysis.overall_viability.label, provider: 'Gemini + World Bank public indicators', adult_confirmed: true, created_at: createdAt, result: report};
     await firestoreAdminCreate({env, collection: 'validator_checks', documentId: id, fields: record});
     return json({...report, id, provider: record.provider});
   } catch (error) {

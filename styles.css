@@ -57,3 +57,4 @@
 .validator-result>h3{color:var(--lime)}
 .saved-result-nested{padding-left:12px;border-left:2px solid rgba(106,45,255,.25)}
 @media(max-width:700px){.account-header{align-items:flex-start}.account-header-actions{gap:7px}.account-header-actions .button{font-size:13px;padding:9px 11px}.account-page-actions{align-items:stretch;flex-direction:column}.account-page-actions .button{width:100%;text-align:center}}
+.adult-confirmation{display:flex;align-items:flex-start;gap:10px;color:var(--ink);font-weight:700;line-height:1.5}.adult-confirmation input[type=checkbox]{width:18px;height:18px;flex:none;margin:3px 0 0;accent-color:var(--purple)}.validator-form .adult-confirmation{color:#fff}
