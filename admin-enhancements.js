@@ -66,7 +66,7 @@
       const allowed = new Set(Object.keys(adminAiProductNames));
       const products = (body.tools || []).filter(product => allowed.has(product.slug));
       products.forEach(product => adminAiTools.set(product.slug, product));
-      adminAiProduct.innerHTML = '<option value="">Choose one tool</option>' + products.map(product => `<option value="${escape(product.slug)}">${escape(product.name)} · ₦${Number(product.price).toLocaleString('en-NG')}</option>`).join('');
+      adminAiProduct.innerHTML = '<option value="">Choose one tool</option>' + products.map(product => `<option value="${escape(product.slug)}">${escape(product.name)}</option>`).join('');
       const submitButton = document.querySelector('#admin-ai-test-submit');
       if (submitButton) submitButton.disabled = products.length !== 3;
       if (products.length !== 3) setStatus('#admin-ai-test-status', 'The tool catalog did not return all three products. Refresh the admin page before testing.', true);

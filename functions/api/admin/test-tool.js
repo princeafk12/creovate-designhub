@@ -46,6 +46,8 @@ export async function onRequestPost({request, env}) {
     if (provider === 'gemini' && !geminiRegionAllowed(request)) return json({error: 'Gemini generation is not available in this region.'}, 403);
     if (provider === 'openai' && env.AI_PAID_PROVIDER_ENABLED !== 'true') return json({error: 'The configured paid AI provider is disabled.'}, 503);
     if (!['gemini', 'openai'].includes(provider)) return json({error: 'The configured AI provider is not supported.'}, 503);
+    if (provider === 'gemini' && (!env.GEMINI_API_KEY || !env.GEMINI_MODEL)) return json({error: 'Gemini is not configured. No AI request was sent.'}, 503);
+    if (provider === 'openai' && (!env.OPENAI_API_KEY || !env.OPENAI_MODEL)) return json({error: 'The configured AI provider is missing its key or model. No AI request was sent.'}, 503);
 
     const brief = toolBrief(slug, input.brief);
     const product = BUSINESS_TOOLS[slug];
