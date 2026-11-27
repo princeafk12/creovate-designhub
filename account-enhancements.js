@@ -12,6 +12,24 @@
   const formatDate = value => { const date = new Date(value); return Number.isNaN(date.getTime()) ? 'Date unavailable' : date.toLocaleString('en-NG'); };
   const formatMoney = value => `₦${Number(value || 0).toLocaleString('en-NG')}`;
   const label = key => String(key || '').replace(/[_-]+/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase());
+  const plainValue = (value, depth = 0) => {
+    const indent = '  '.repeat(depth);
+    if (Array.isArray(value)) return value.map((item, index) => item && typeof item === 'object' ? `${indent}${index + 1}.\n${plainValue(item, depth + 1)}` : `${indent}${index + 1}. ${String(item ?? '')}`).join('\n');
+    if (value && typeof value === 'object') return Object.entries(value).map(([key, item]) => `${indent}${label(key)}:\n${plainValue(item, depth + 1)}`).join('\n\n');
+    return `${indent}${String(value ?? '')}`;
+  };
+  const copyPlainText = async text => {
+    if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text);
+    const temporary = document.createElement('textarea');
+    temporary.value = text;
+    temporary.style.position = 'fixed';
+    temporary.style.opacity = '0';
+    document.body.appendChild(temporary);
+    temporary.select();
+    const copied = document.execCommand('copy');
+    temporary.remove();
+    if (!copied) throw new Error('Clipboard unavailable');
+  };
   const renderValue = value => {
     if (Array.isArray(value)) return `<ul>${value.map(item => `<li>${renderValue(item)}</li>`).join('')}</ul>`;
     if (value && typeof value === 'object') return `<div class="saved-result-nested">${Object.entries(value).map(([key, item]) => `<section><strong>${escape(label(key))}</strong>${renderValue(item)}</section>`).join('')}</div>`;
@@ -36,7 +54,8 @@
     const result = job.result || {};
     const sections = Object.entries(result).map(([key, value]) => `<section><strong>${escape(label(key))}</strong>${renderValue(value)}</section>`).join('');
     const buttons = job.status === 'completed' ? `<div class="promo-actions"><button class="button button-outline-dark" type="button" data-action="copy" data-job-id="${escape(job.id)}">Copy</button><button class="button button-outline-dark" type="button" data-action="download" data-job-id="${escape(job.id)}">Download</button>${job.order_id ? job.regeneration_used ? '<span class="form-note">Free regeneration used</span>' : `<button class="button button-outline-dark" type="button" data-action="regenerate" data-job-id="${escape(job.id)}">Use free regeneration</button>` : ''}</div>` : job.status === 'failed' && job.order_id ? `<div class="promo-actions"><button class="button button-outline-dark" type="button" data-action="retry" data-order-id="${escape(job.order_id)}">Retry paid generation</button></div>` : '';
-    return `<article class="order-card promo-history-card"><strong>${escape(toolNames[job.product] || 'CREOVATE for Business')}</strong><span>${escape(job.status || 'saved')}</span><small>${formatDate(job.completed_at || job.created_at)} · Attempt ${escape(job.generation_attempt || 1)}</small>${buttons}${job.status === 'completed' ? `<details class="validator-history-details"><summary>Open saved result</summary><div class="validator-history-report">${sections || '<p>No result was stored.</p>'}</div></details>` : job.status === 'failed' ? `<small>${escape(job.error || 'Generation did not complete. Retry when the AI service is available.')}</small>` : ''}<span hidden data-job-json="${escape(job.id)}">${escape(JSON.stringify(result))}</span></article>`;
+    const resultText = `${toolNames[job.product] || 'CREOVATE for Business'}\n\n${plainValue(result)}`;
+    return `<article class="order-card promo-history-card"><strong>${escape(toolNames[job.product] || 'CREOVATE for Business')}</strong><span>${escape(job.status || 'saved')}</span><small>${formatDate(job.completed_at || job.created_at)} · Attempt ${escape(job.generation_attempt || 1)}</small>${buttons}${job.status === 'completed' ? `<details class="validator-history-details"><summary>Open saved result</summary><div class="validator-history-report">${sections || '<p>No result was stored.</p>'}</div></details>` : job.status === 'failed' ? `<small>${escape(job.error || 'Generation did not complete. Retry when the AI service is available.')}</small>` : ''}<textarea hidden data-job-text="${escape(job.id)}">${escape(resultText)}</textarea></article>`;
   };
 
   const {data: sessionData} = await db.auth.getSession();
@@ -64,12 +83,12 @@
     const jobId = button.dataset.jobId;
     const action = button.dataset.action;
     if (action === 'copy' || action === 'download') {
-      const node = resultsBox.querySelector(`[data-job-json="${CSS.escape(jobId)}"]`);
-      const json = node?.textContent || '{}';
-      if (action === 'copy') { await navigator.clipboard.writeText(json); button.textContent = 'Copied'; return; }
+      const node = resultsBox.querySelector(`[data-job-text="${CSS.escape(jobId)}"]`);
+      const text = node?.value || '';
+      if (action === 'copy') { await copyPlainText(text); button.textContent = 'Copied'; return; }
       const item = jobs.find(job => job.id === jobId);
-      const blob = new Blob([json], {type: 'application/json'});
-      const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `creovate-${(item?.product || 'business-tool').replaceAll('_', '-')}.json`; link.click(); URL.revokeObjectURL(link.href); return;
+      const blob = new Blob([text], {type: 'text/plain;charset=utf-8'});
+      const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `creovate-${(item?.product || 'business-tool').replaceAll('_', '-')}.txt`; link.click(); URL.revokeObjectURL(link.href); return;
     }
     const session = (await db.auth.getSession()).data.session;
     if (!session) return;

@@ -106,10 +106,11 @@ export async function firestoreAdminGetWithMeta({env, collection, documentId}) {
   };
 }
 
-export async function firestoreAdminQuery({env, collection, where = [], limit = 20}) {
+export async function firestoreAdminQuery({env, collection, where = [], limit = 20, orderBy}) {
   const structuredQuery = {from: [{collectionId: collection}], limit};
   if (where.length === 1) structuredQuery.where = firestoreFilter(where[0]);
   if (where.length > 1) structuredQuery.where = {compositeFilter: {op: 'AND', filters: where.map(firestoreFilter)}};
+  if (orderBy?.field) structuredQuery.orderBy = [{field: {fieldPath: orderBy.field}, direction: orderBy.direction === 'ASCENDING' ? 'ASCENDING' : 'DESCENDING'}];
   const response = await fetch(firestoreCollectionUrl(env), {
     method: 'POST',
     headers: {'content-type': 'application/json', authorization: `Bearer ${await adminAccessToken(env)}`},

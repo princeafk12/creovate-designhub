@@ -22,6 +22,12 @@
   const adminAiFields = document.querySelector('#admin-ai-test-fields');
   const adminAiHistory = document.querySelector('#admin-ai-test-history');
   const readableLabel = value => String(value).replaceAll('_', ' ').replace(/\b[a-z]/g, character => character.toUpperCase());
+  const plainAiValue = (value, depth = 0) => {
+    const indent = '  '.repeat(depth);
+    if (Array.isArray(value)) return value.map((item, index) => item && typeof item === 'object' ? `${indent}${index + 1}.\n${plainAiValue(item, depth + 1)}` : `${indent}${index + 1}. ${String(item ?? '')}`).join('\n');
+    if (value && typeof value === 'object') return Object.entries(value).map(([key, item]) => `${indent}${readableLabel(key)}:\n${plainAiValue(item, depth + 1)}`).join('\n\n');
+    return `${indent}${String(value ?? '')}`;
+  };
   const readableAiValue = value => {
     if (Array.isArray(value)) return `<ul class="admin-ai-readable-list">${value.map(item => `<li>${readableAiValue(item)}</li>`).join('')}</ul>`;
     if (value && typeof value === 'object') return `<div class="admin-ai-readable-object">${Object.entries(value).map(([key, item]) => `<section class="admin-ai-readable-section"><h4>${escape(readableLabel(key))}</h4>${readableAiValue(item)}</section>`).join('')}</div>`;
@@ -29,9 +35,34 @@
   };
   const renderAdminAiResult = (run, saved = false) => {
     const name = adminAiProductNames[run.product] || adminAiProductNames[adminAiProduct?.value] || 'AI tool';
-    const result = run.result && typeof run.result === 'object' ? saved ? `<details class="admin-ai-result-details"><summary>View saved result</summary><div class="admin-ai-readable">${readableAiValue(run.result)}</div></details>` : `<div class="admin-ai-readable">${readableAiValue(run.result)}</div>` : '';
+    const result = run.result && typeof run.result === 'object' ? `<div class="promo-actions"><button class="button button-outline-dark" type="button" data-copy-admin-ai-result>Copy result</button></div><textarea hidden data-admin-ai-copy-source>${escape(`${name}\n\n${plainAiValue(run.result)}`)}</textarea>${saved ? `<details class="admin-ai-result-details"><summary>View saved result</summary><div class="admin-ai-readable">${readableAiValue(run.result)}</div></details>` : `<div class="admin-ai-readable">${readableAiValue(run.result)}</div>`}` : '';
     return `<article class="order-card"><strong>${escape(name)} · ${escape(run.status || 'completed')}</strong><small>${formatDate(run.completed_at || run.created_at)}${run.usage ? ` · ${escape(run.usage.provider)} · ${Number(run.usage.total_tokens || 0).toLocaleString('en-NG')} tokens` : ''}</small>${run.usage?.estimated_cost_usd != null ? `<small>Estimated provider cost: $${Number(run.usage.estimated_cost_usd).toFixed(4)}</small>` : ''}${result}${run.error ? `<p class="form-status is-error">${escape(run.error)}</p>` : ''}</article>`;
   };
+  const copyAdminAiResult = async event => {
+    const button = event.target.closest('[data-copy-admin-ai-result]');
+    if (!button) return;
+    const source = button.closest('.order-card')?.querySelector('[data-admin-ai-copy-source]');
+    if (!source) return;
+    try {
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(source.value);
+      else {
+        const temporary = document.createElement('textarea');
+        temporary.value = source.value;
+        temporary.style.position = 'fixed';
+        temporary.style.opacity = '0';
+        document.body.appendChild(temporary);
+        temporary.select();
+        const copied = document.execCommand('copy');
+        temporary.remove();
+        if (!copied) throw new Error('Clipboard unavailable');
+      }
+      button.textContent = 'Copied';
+    } catch {
+      button.textContent = 'Copy failed';
+    }
+  };
+  document.querySelector('#admin-ai-test-result')?.addEventListener('click', copyAdminAiResult);
+  adminAiHistory?.addEventListener('click', copyAdminAiResult);
   const renderAdminAiFields = product => {
     if (!adminAiFields) return;
     if (!product) { adminAiFields.innerHTML = ''; return; }
@@ -251,33 +282,38 @@
     return build('idea,audience,score,verdict,created_at');
   };
 
-  const recentOrders = await db.from('orders').select('service_name,price,rush,status,payment_status,created_at,brief,order_type,product_slug').order('created_at', {ascending: false}).limit(25);
-  renderOrders(document.querySelector('#admin-orders'), recentOrders.data, recentOrders.error);
-  const recentPromoJobs = await db.from('generation_jobs').select('product,status,created_at,completed_at,usage,generation_attempt').order('created_at', {ascending: false}).limit(50);
-  const recentChecks = await loadChecks();
-  const paidOrders = (recentOrders.data || []).filter(order => order.payment_status === 'paid');
-  const toolJobs = recentPromoJobs.data || [];
-  const totalRevenue = paidOrders.reduce((sum, order) => sum + Number(order.price || 0), 0);
-  const completedJobs = toolJobs.filter(job => job.status === 'completed');
-  const failedJobs = toolJobs.filter(job => job.status === 'failed');
-  const totalTokens = completedJobs.reduce((sum, job) => sum + Number(job.usage?.total_tokens || 0), 0);
-  const validatorChecks = recentChecks.data || [];
-  const validatorTokens = validatorChecks.reduce((sum, check) => sum + Number(check.result?.usage?.totalTokenCount || check.result?.usage?.total_tokens || 0), 0);
-  const estimatedCost = completedJobs.reduce((sum, job) => sum + Number(job.usage?.estimated_cost_usd || 0), 0);
+  let monitoring = null;
+  let monitoringError = null;
+  try {
+    const {data: sessionData} = await db.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) throw new Error('Your administrator session has expired. Log in again.');
+    const response = await fetch('/api/admin/monitoring', {headers: {authorization: `Bearer ${token}`}, cache: 'no-store'});
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || 'Business monitoring could not load.');
+    monitoring = body;
+  } catch (error) {
+    monitoringError = error;
+  }
+  const recentOrders = monitoring?.orders || [];
+  const toolJobs = monitoring?.jobs || [];
+  const validatorChecks = monitoring?.checks || [];
+  const totals = monitoring?.summary || {};
+  renderOrders(document.querySelector('#admin-orders'), recentOrders, monitoringError, 'No saved orders yet.');
   const summary = document.querySelector('#admin-business-summary');
-  if (summary) summary.innerHTML = [
-    ['Recent paid revenue', formatMoney(totalRevenue)],
-    ['Paid orders', String(paidOrders.length)],
-    ['Tool generations completed', String(completedJobs.length)],
-    ['Tool generations failed', String(failedJobs.length)],
-    ['Recorded tokens', totalTokens.toLocaleString('en-NG')],
-    ['Validator reports / tokens', `${validatorChecks.length} / ${validatorTokens.toLocaleString('en-NG')}`],
-    ['Estimated AI cost', estimatedCost ? `$${estimatedCost.toFixed(4)}` : 'Not configured']
+  if (summary) summary.innerHTML = monitoringError ? `<p class="form-status is-error">${escape(monitoringError.message)}</p>` : [
+    ['Recent paid revenue', formatMoney(totals.recent_paid_revenue)],
+    ['Paid orders', String(totals.paid_orders || 0)],
+    ['Tool generations completed', String(totals.completed_generations || 0)],
+    ['Tool generations failed', String(totals.failed_generations || 0)],
+    ['Recorded tokens', Number(totals.recorded_tokens || 0).toLocaleString('en-NG')],
+    ['Validator reports / tokens', `${totals.validator_reports || 0} / ${Number(totals.validator_tokens || 0).toLocaleString('en-NG')}`],
+    ['Estimated AI cost', totals.estimated_cost_usd != null ? `$${Number(totals.estimated_cost_usd).toFixed(4)}` : 'Not configured']
   ].map(([label, value]) => `<div class="admin-summary-card"><span>${escape(label)}</span><strong>${escape(value)}</strong></div>`).join('');
   const promoJobsBox = document.querySelector('#admin-promo-jobs');
   const productNames = {promo_studio:'Promo Studio',caption_studio:'Caption Studio',content_planner:'30-Day Content Planner',business_growth_kit:'Business Growth Kit'};
-  if (promoJobsBox) promoJobsBox.innerHTML = recentPromoJobs.error ? `<p class="form-status is-error">${escape(recentPromoJobs.error.message)}</p>` : toolJobs.length ? toolJobs.map(job => `<article class="order-card"><strong>${escape(productNames[job.product] || 'CREOVATE for Business')}</strong><span>${escape(job.status || 'unknown')}</span><small>${formatDate(job.completed_at || job.created_at)} · Attempt ${escape(job.generation_attempt || 1)} · ${escape(String(job.usage?.total_tokens || 0))} tokens</small></article>`).join('') : '<p>No CREOVATE for Business generations yet.</p>';
-  renderChecks(document.querySelector('#admin-validator-checks'), recentChecks.data, recentChecks.error);
+  if (promoJobsBox) promoJobsBox.innerHTML = monitoringError ? `<p class="form-status is-error">${escape(monitoringError.message)}</p>` : toolJobs.length ? toolJobs.map(job => `<article class="order-card"><strong>${escape(productNames[job.product] || 'CREOVATE for Business')}</strong><span>${escape(job.status || 'unknown')}</span><small>${formatDate(job.completed_at || job.created_at)} · Attempt ${escape(job.generation_attempt || 1)} · ${escape(String(job.usage?.total_tokens || 0))} tokens</small></article>`).join('') : '<p>No CREOVATE for Business generations yet.</p>';
+  renderChecks(document.querySelector('#admin-validator-checks'), validatorChecks, monitoringError);
 
   const userSelect = document.querySelector('#admin-user-select');
   const passwordSelect = document.querySelector('#password-user-select');
