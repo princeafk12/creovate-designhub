@@ -21,9 +21,11 @@ async function readDocument(env, collection, documentId, fallback = null) {
 export async function onRequestPost({request, env}) {
   let allocatedReservation;
   let allocatedOrderId;
+  let stage = 'checking your sign-in';
   try {
     const user = await firebaseUser(request, env);
     if (!user) return json({error: 'Sign in before creating an order.'}, 401);
+    stage = 'checking live checkout settings';
     if (String(env.PAYMENTS_READY).toLowerCase() !== 'true') return json({error: 'Flutterwave checkout is not enabled yet. No payment was taken.'}, 503);
     if (!env.FLW_SECRET_KEY) return json({error: 'Flutterwave secret key is not configured. No payment was taken.'}, 503);
     if (/_TEST-/i.test(env.FLW_SECRET_KEY)) return json({error: 'Live checkout is not ready. Replace the Flutterwave test key with the Live key in Cloudflare Production. No payment was taken.'}, 503);
@@ -61,8 +63,10 @@ export async function onRequestPost({request, env}) {
       currency = item.currency;
       customerName = customerName || brief.business_name || user.email;
       const now = Date.now();
+      stage = 'checking outstanding tool checkouts';
       const toolOrders = await firestoreAdminQuery({env, collection: 'orders', where: [['order_type', 'tool']], limit: 100});
       await Promise.all(toolOrders.filter(order => order.payment_status === 'pending' && order.usage_reservation?.status === 'reserved' && Date.parse(order.usage_reservation.expires_at || '') <= now).map(order => releaseOrderCapacity(env, order.id)));
+      stage = 'reserving daily AI capacity';
       allocatedReservation = await reserveGenerationCapacity(env, user.uid, {
         reservationId: orderId,
         expiresAt: new Date(now + 30 * 60 * 1000).toISOString()
@@ -84,6 +88,7 @@ export async function onRequestPost({request, env}) {
       customerName = customerName || brief.name;
     }
     allocatedOrderId = orderId;
+    stage = 'saving your order securely';
     const createdAt = new Date().toISOString();
     const order = {
       id: orderId,
@@ -107,6 +112,7 @@ export async function onRequestPost({request, env}) {
     await firestoreAdminWrite({env, collection: 'orders', documentId: orderId, fields: order});
 
     const appBaseUrl = String(env.APP_BASE_URL || new URL(request.url).origin).replace(/\/$/, '');
+    stage = 'requesting a Flutterwave checkout link';
     const payment = await fetch('https://api.flutterwave.com/v3/payments', {
       method: 'POST',
       headers: {authorization: `Bearer ${env.FLW_SECRET_KEY}`, 'content-type': 'application/json'},
@@ -137,14 +143,16 @@ export async function onRequestPost({request, env}) {
     });
     return json({order_id: orderId, tx_ref: txRef, checkout_url: paymentBody.data.link});
   } catch (error) {
+    const reference = crypto.randomUUID().slice(0, 8);
+    const detail = error instanceof Error ? error.message : 'Unknown checkout error';
+    console.error('CREOVATE checkout failed', {reference, stage, detail});
     if (allocatedReservation) {
       const order = allocatedOrderId ? await firestoreAdminGet({env, collection: 'orders', documentId: allocatedOrderId}).catch(() => null) : null;
       if (order) await releaseOrderCapacity(env, allocatedOrderId);
       else await releaseGenerationCapacity(env, allocatedReservation);
     }
-    const message = error instanceof Error ? error.message : 'Checkout failed.';
-    const configError = /configuration|not configured/i.test(message);
-    return json({error: configError ? message : 'Checkout failed.'}, configError ? 503 : 500);
+    const configError = /configuration|not configured/i.test(detail);
+    return json({error: configError ? detail : `Checkout could not finish while ${stage}. Reference: ${reference}.`}, configError ? 503 : 500);
   }
 }
 
