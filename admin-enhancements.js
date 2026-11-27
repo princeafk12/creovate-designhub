@@ -21,9 +21,15 @@
   const adminAiProduct = document.querySelector('#admin-ai-test-product');
   const adminAiFields = document.querySelector('#admin-ai-test-fields');
   const adminAiHistory = document.querySelector('#admin-ai-test-history');
+  const readableLabel = value => String(value).replaceAll('_', ' ').replace(/\b[a-z]/g, character => character.toUpperCase());
+  const readableAiValue = value => {
+    if (Array.isArray(value)) return `<ul class="admin-ai-readable-list">${value.map(item => `<li>${readableAiValue(item)}</li>`).join('')}</ul>`;
+    if (value && typeof value === 'object') return `<div class="admin-ai-readable-object">${Object.entries(value).map(([key, item]) => `<section class="admin-ai-readable-section"><h4>${escape(readableLabel(key))}</h4>${readableAiValue(item)}</section>`).join('')}</div>`;
+    return `<p>${escape(value)}</p>`;
+  };
   const renderAdminAiResult = (run, saved = false) => {
     const name = adminAiProductNames[run.product] || adminAiProductNames[adminAiProduct?.value] || 'AI tool';
-    const result = run.result && typeof run.result === 'object' ? `<details class="admin-ai-result-details"><summary>${saved ? 'Open saved result' : 'View generated result'}</summary><pre class="admin-ai-result">${escape(JSON.stringify(run.result, null, 2))}</pre></details>` : '';
+    const result = run.result && typeof run.result === 'object' ? saved ? `<details class="admin-ai-result-details"><summary>View saved result</summary><div class="admin-ai-readable">${readableAiValue(run.result)}</div></details>` : `<div class="admin-ai-readable">${readableAiValue(run.result)}</div>` : '';
     return `<article class="order-card"><strong>${escape(name)} · ${escape(run.status || 'completed')}</strong><small>${formatDate(run.completed_at || run.created_at)}${run.usage ? ` · ${escape(run.usage.provider)} · ${Number(run.usage.total_tokens || 0).toLocaleString('en-NG')} tokens` : ''}</small>${run.usage?.estimated_cost_usd != null ? `<small>Estimated provider cost: $${Number(run.usage.estimated_cost_usd).toFixed(4)}</small>` : ''}${result}${run.error ? `<p class="form-status is-error">${escape(run.error)}</p>` : ''}</article>`;
   };
   const renderAdminAiFields = product => {
