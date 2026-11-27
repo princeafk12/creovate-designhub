@@ -1,4 +1,4 @@
-import {firebaseUser, firestoreAdminCreate, firestoreAdminGet, firestoreAdminWrite, json} from '../../_lib/firebase.js';
+import {firebaseUser, firestoreAdminCreate, firestoreAdminGet, firestoreAdminGetWithMeta, firestoreAdminWrite, json} from '../../_lib/firebase.js';
 import {BUSINESS_TOOLS, toolBrief} from '../../_lib/business-tools.js';
 import {ageConfirmationReceived, geminiRegionAllowed} from '../../_lib/ai-access.js';
 import {generate} from '../generate-tool.js';
@@ -32,6 +32,7 @@ export async function onRequestGet({request, env}) {
 export async function onRequestPost({request, env}) {
   let testId = '';
   let recordCreated = false;
+  let attemptNumber = 0;
   try {
     const access = await authorize(request, env);
     if (access.response) return access.response;
@@ -54,14 +55,24 @@ export async function onRequestPost({request, env}) {
     const day = new Date().toISOString().slice(0, 10);
     testId = `${user.uid}_${slug}_${day}`;
     const now = new Date().toISOString();
-    const created = await firestoreAdminCreate({env, collection: 'admin_tool_tests', documentId: testId, fields: {id: testId, user_id: user.uid, product: slug, status: 'processing', created_at: now, brief}});
+    const created = await firestoreAdminCreate({env, collection: 'admin_tool_tests', documentId: testId, fields: {id: testId, user_id: user.uid, product: slug, status: 'processing', attempts: 1, created_at: now, brief}});
     if (!created.created) {
-      const prior = await firestoreAdminGet({env, collection: 'admin_tool_tests', documentId: testId});
+      const priorSnapshot = await firestoreAdminGetWithMeta({env, collection: 'admin_tool_tests', documentId: testId});
+      const prior = priorSnapshot?.data;
       if (prior?.status === 'completed') return json({test_id: testId, status: 'completed', result: prior.result, usage: prior.usage, existing: true});
-      if (prior?.status === 'failed') return json({error: `This tool's admin test already ran today and failed: ${prior.error || 'AI generation failed.'} Try again tomorrow.`, status: 'failed'}, 409);
-      return json({error: 'This tool already has a test running today.'}, 409);
+      if (prior?.status === 'failed') {
+        const attempts = Number(prior.attempts || 1);
+        if (attempts >= 3) return json({error: `The three test attempts for this tool are used today. Last error: ${prior.error || 'AI generation failed.'} Try again tomorrow.`, status: 'failed'}, 409);
+        attemptNumber = attempts + 1;
+        await firestoreAdminWrite({env, collection: 'admin_tool_tests', documentId: testId, fields: {status: 'processing', attempts: attemptNumber, created_at: now, brief, error: ''}, currentDocument: {updateTime: priorSnapshot.updateTime}});
+        recordCreated = true;
+      } else {
+        return json({error: 'This tool already has a test running today.'}, 409);
+      }
+    } else {
+      attemptNumber = 1;
+      recordCreated = true;
     }
-    recordCreated = true;
 
     const generated = await generate({product, brief, env});
     const completedAt = new Date().toISOString();
@@ -74,6 +85,7 @@ export async function onRequestPost({request, env}) {
     }
     const providerStatus = Number(error?.providerStatus || 0);
     const status = providerStatus === 429 || /quota|rate limit|resource exhausted|429/i.test(message) ? 429 : /not configured|configuration|service-account|Firebase server authorization/i.test(message) ? 503 : /complete these required|choose a valid option/i.test(message) ? 400 : recordCreated ? 502 : 503;
-    return json({error: recordCreated ? `${message} This admin tool's test slot has been used for today.` : `${message} No AI request was sent.`}, status);
+    const retryNote = attemptNumber < 3 ? `You can retry this tool today; attempt ${attemptNumber} of 3 was used.` : 'All 3 tries for this tool are used today.';
+    return json({error: recordCreated ? `${message} ${retryNote}` : `${message} No AI request was sent.`}, status);
   }
 }

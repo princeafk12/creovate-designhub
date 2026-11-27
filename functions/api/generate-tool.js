@@ -7,7 +7,8 @@ const clean = value => String(value ?? '').trim().slice(0, 180);
 function promptFor(product, brief) {
   const promptBrief = {...brief};
   delete promptBrief.contact;
-  return `${product.prompt}\nReturn only valid JSON matching this schema: ${JSON.stringify(product.schema)}\n\nCustomer brief:\n${JSON.stringify(promptBrief, null, 2)}`;
+  const exactCounts = Object.entries(product.exactCounts || {}).map(([key, count]) => `The "${key}" array must contain exactly ${count} items.`).join('\n');
+  return `${product.prompt}\n${exactCounts ? `MANDATORY ITEM COUNTS:\n${exactCounts}\n` : ''}Return only valid JSON matching this schema: ${JSON.stringify(product.schema)}\n\nCustomer brief:\n${JSON.stringify(promptBrief, null, 2)}`;
 }
 
 function parseOutput(text, provider) {
