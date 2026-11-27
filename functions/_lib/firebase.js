@@ -122,9 +122,10 @@ export async function firestoreAdminQuery({env, collection, where = [], limit = 
 
 export async function firestoreAdminWrite({env, collection, documentId, fields, currentDocument}) {
   const payload = {fields: Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, firestoreValue(value)]))};
-  if (currentDocument) payload.currentDocument = currentDocument;
   const url = new URL(firestoreUrl(env, collection, documentId));
   for (const key of Object.keys(fields)) url.searchParams.append('updateMask.fieldPaths', key);
+  if (currentDocument && Object.prototype.hasOwnProperty.call(currentDocument, 'exists')) url.searchParams.set('currentDocument.exists', String(currentDocument.exists));
+  if (currentDocument?.updateTime) url.searchParams.set('currentDocument.updateTime', currentDocument.updateTime);
   const response = await fetch(url, {method: 'PATCH', headers: {'content-type': 'application/json', authorization: `Bearer ${await adminAccessToken(env)}`}, body: JSON.stringify(payload)});
   const body = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(body.error?.message || `Firestore write failed (${response.status}).`);
@@ -132,13 +133,12 @@ export async function firestoreAdminWrite({env, collection, documentId, fields, 
 }
 
 export async function firestoreAdminCreate({env, collection, documentId, fields}) {
-  const response = await fetch(firestoreUrl(env, collection, documentId), {
+  const url = new URL(firestoreUrl(env, collection, documentId));
+  url.searchParams.set('currentDocument.exists', 'false');
+  const response = await fetch(url, {
     method: 'PATCH',
     headers: {'content-type': 'application/json', authorization: `Bearer ${await adminAccessToken(env)}`},
-    body: JSON.stringify({
-      fields: Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, firestoreValue(value)])),
-      currentDocument: {exists: false}
-    })
+    body: JSON.stringify({fields: Object.fromEntries(Object.entries(fields).map(([key, value]) => [key, firestoreValue(value)]))})
   });
   const body = await response.json().catch(() => ({}));
   if (response.ok) return {created: true, body};
