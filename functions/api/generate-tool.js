@@ -26,7 +26,7 @@ function usageFor(body, env, provider) {
   return {provider, input_tokens: input, output_tokens: output, total_tokens: Number(provider === 'gemini' ? usage.totalTokenCount || input + output : usage.total_tokens || input + output), estimated_cost_usd: inputRate || outputRate ? input / 1e6 * inputRate + output / 1e6 * outputRate : null};
 }
 
-async function generate({product, brief, env}) {
+export async function generate({product, brief, env}) {
   const prompt = promptFor(product, brief);
   const provider = String(env.AI_PROVIDER || 'gemini').toLowerCase();
   let response;

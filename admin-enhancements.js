@@ -16,6 +16,94 @@
     node.textContent = text;
     node.classList.toggle('is-error', error);
   };
+  const adminAiTools = new Map();
+  const adminAiProductNames = {caption_studio: 'Caption Studio', content_planner: '30-Day Content Planner', business_growth_kit: 'Business Growth Kit'};
+  const adminAiProduct = document.querySelector('#admin-ai-test-product');
+  const adminAiFields = document.querySelector('#admin-ai-test-fields');
+  const adminAiHistory = document.querySelector('#admin-ai-test-history');
+  const renderAdminAiResult = (run, saved = false) => {
+    const name = adminAiProductNames[run.product] || adminAiProductNames[adminAiProduct?.value] || 'AI tool';
+    const result = run.result && typeof run.result === 'object' ? `<details class="admin-ai-result-details"><summary>${saved ? 'Open saved result' : 'View generated result'}</summary><pre class="admin-ai-result">${escape(JSON.stringify(run.result, null, 2))}</pre></details>` : '';
+    return `<article class="order-card"><strong>${escape(name)} · ${escape(run.status || 'completed')}</strong><small>${formatDate(run.completed_at || run.created_at)}${run.usage ? ` · ${escape(run.usage.provider)} · ${Number(run.usage.total_tokens || 0).toLocaleString('en-NG')} tokens` : ''}</small>${run.usage?.estimated_cost_usd != null ? `<small>Estimated provider cost: $${Number(run.usage.estimated_cost_usd).toFixed(4)}</small>` : ''}${result}${run.error ? `<p class="form-status is-error">${escape(run.error)}</p>` : ''}</article>`;
+  };
+  const renderAdminAiFields = product => {
+    if (!adminAiFields) return;
+    if (!product) { adminAiFields.innerHTML = ''; return; }
+    adminAiFields.innerHTML = product.fields.map(field => {
+      const id = `admin-ai-field-${field.key}`;
+      const required = field.required ? ' required' : '';
+      const maxLength = ` maxlength="${Number(field.maxLength) || 500}"`;
+      let control = '';
+      if (field.type === 'select') {
+        control = `<select id="${escape(id)}" name="${escape(field.key)}"${required}><option value="">Choose an option</option>${(field.options || []).map(option => `<option value="${escape(option)}">${escape(option)}</option>`).join('')}</select>`;
+      } else if (field.type === 'textarea') {
+        control = `<textarea id="${escape(id)}" name="${escape(field.key)}" rows="3"${maxLength}${required}></textarea>`;
+      } else {
+        control = `<input id="${escape(id)}" name="${escape(field.key)}" type="text"${maxLength}${required}>`;
+      }
+      return `<label class="${field.type === 'textarea' ? 'form-field-full' : ''}" for="${escape(id)}">${escape(field.label)}${field.required ? ' *' : ''}${control}</label>`;
+    }).join('');
+  };
+  const loadAdminAiHistory = async () => {
+    if (!adminAiHistory) return;
+    try {
+      const {data: sessionData} = await db.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error('Your administrator session has expired.');
+      const response = await fetch('/api/admin/test-tool', {headers: {authorization: `Bearer ${token}`}, cache: 'no-store'});
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'Could not load saved test results.');
+      adminAiHistory.innerHTML = body.runs?.length ? body.runs.map(run => renderAdminAiResult(run, true)).join('') : '<p>No admin AI tests saved yet.</p>';
+    } catch (error) {
+      adminAiHistory.innerHTML = `<p class="form-status is-error">${escape(error.message)}</p>`;
+    }
+  };
+  if (adminAiProduct) {
+    try {
+      const response = await fetch('/api/tools/catalog', {cache: 'no-store'});
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || 'Could not load the AI tools.');
+      const allowed = new Set(Object.keys(adminAiProductNames));
+      const products = (body.tools || []).filter(product => allowed.has(product.slug));
+      products.forEach(product => adminAiTools.set(product.slug, product));
+      adminAiProduct.innerHTML = '<option value="">Choose one tool</option>' + products.map(product => `<option value="${escape(product.slug)}">${escape(product.name)} · ₦${Number(product.price).toLocaleString('en-NG')}</option>`).join('');
+      const submitButton = document.querySelector('#admin-ai-test-submit');
+      if (submitButton) submitButton.disabled = products.length !== 3;
+      if (products.length !== 3) setStatus('#admin-ai-test-status', 'The tool catalog did not return all three products. Refresh the admin page before testing.', true);
+    } catch (error) {
+      adminAiProduct.innerHTML = '<option value="">Tools could not be loaded</option>';
+      setStatus('#admin-ai-test-status', error.message, true);
+    }
+    adminAiProduct.addEventListener('change', () => renderAdminAiFields(adminAiTools.get(adminAiProduct.value)));
+    document.querySelector('#admin-ai-test-form')?.addEventListener('submit', async event => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      if (!form.reportValidity()) return;
+      const button = document.querySelector('#admin-ai-test-submit');
+      const product = adminAiProduct.value;
+      const brief = Object.fromEntries([...adminAiFields.querySelectorAll('input,textarea,select')].map(field => [field.name, field.value]));
+      button.disabled = true;
+      setStatus('#admin-ai-test-status', 'Saving a private test record, then requesting the AI result. No checkout or payment will start.');
+      document.querySelector('#admin-ai-test-result').innerHTML = '';
+      try {
+        const {data: sessionData} = await db.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) throw new Error('Your administrator session has expired. Log in again.');
+        const response = await fetch('/api/admin/test-tool', {method: 'POST', headers: {'content-type': 'application/json', authorization: `Bearer ${token}`}, body: JSON.stringify({product_slug: product, brief, adult_confirmed: document.querySelector('#admin-ai-test-age').checked})});
+        const body = await response.json().catch(() => ({}));
+        if (body.result) document.querySelector('#admin-ai-test-result').innerHTML = renderAdminAiResult({product, status: body.status, result: body.result, usage: body.usage, created_at: new Date().toISOString()});
+        if (!response.ok) throw new Error(body.error || 'The admin AI test failed.');
+        setStatus('#admin-ai-test-status', body.existing ? 'This tool was already tested today. Showing its saved result; no second AI request was made.' : 'Generated and saved. This result is private to the admin test log and was not added to a customer account.');
+        await loadAdminAiHistory();
+      } catch (error) {
+        setStatus('#admin-ai-test-status', error.message, true);
+        await loadAdminAiHistory();
+      } finally {
+        button.disabled = false;
+      }
+    });
+    await loadAdminAiHistory();
+  }
   const contentDefaults = {
     hero_title: 'Professional design, delivered in 24 hours.',
     hero_copy: 'Logos, flyers, social posts, business cards and full brand kits for businesses that want to look the part, at prices that make sense.',
