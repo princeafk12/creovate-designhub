@@ -16,131 +16,6 @@
     node.textContent = text;
     node.classList.toggle('is-error', error);
   };
-  const adminAiTools = new Map();
-  const adminAiProductNames = {caption_studio: 'Caption Studio', content_planner: '30-Day Content Planner', business_growth_kit: 'Business Growth Kit'};
-  const adminAiProduct = document.querySelector('#admin-ai-test-product');
-  const adminAiFields = document.querySelector('#admin-ai-test-fields');
-  const adminAiHistory = document.querySelector('#admin-ai-test-history');
-  const readableLabel = value => String(value).replaceAll('_', ' ').replace(/\b[a-z]/g, character => character.toUpperCase());
-  const plainAiValue = (value, depth = 0) => {
-    const indent = '  '.repeat(depth);
-    if (Array.isArray(value)) return value.map((item, index) => item && typeof item === 'object' ? `${indent}${index + 1}.\n${plainAiValue(item, depth + 1)}` : `${indent}${index + 1}. ${String(item ?? '')}`).join('\n');
-    if (value && typeof value === 'object') return Object.entries(value).map(([key, item]) => `${indent}${readableLabel(key)}:\n${plainAiValue(item, depth + 1)}`).join('\n\n');
-    return `${indent}${String(value ?? '')}`;
-  };
-  const readableAiValue = value => {
-    if (Array.isArray(value)) return `<ul class="admin-ai-readable-list">${value.map(item => `<li>${readableAiValue(item)}</li>`).join('')}</ul>`;
-    if (value && typeof value === 'object') return `<div class="admin-ai-readable-object">${Object.entries(value).map(([key, item]) => `<section class="admin-ai-readable-section"><h4>${escape(readableLabel(key))}</h4>${readableAiValue(item)}</section>`).join('')}</div>`;
-    return `<p>${escape(value)}</p>`;
-  };
-  const renderAdminAiResult = (run, saved = false) => {
-    const name = adminAiProductNames[run.product] || adminAiProductNames[adminAiProduct?.value] || 'AI tool';
-    const result = run.result && typeof run.result === 'object' ? `<div class="promo-actions"><button class="button button-outline-dark" type="button" data-copy-admin-ai-result>Copy result</button></div><textarea hidden data-admin-ai-copy-source>${escape(`${name}\n\n${plainAiValue(run.result)}`)}</textarea>${saved ? `<details class="admin-ai-result-details"><summary>View saved result</summary><div class="admin-ai-readable">${readableAiValue(run.result)}</div></details>` : `<div class="admin-ai-readable">${readableAiValue(run.result)}</div>`}` : '';
-    return `<article class="order-card"><strong>${escape(name)} · ${escape(run.status || 'completed')}</strong><small>${formatDate(run.completed_at || run.created_at)}${run.usage ? ` · ${escape(run.usage.provider)} · ${Number(run.usage.total_tokens || 0).toLocaleString('en-NG')} tokens` : ''}</small>${run.usage?.estimated_cost_usd != null ? `<small>Estimated provider cost: $${Number(run.usage.estimated_cost_usd).toFixed(4)}</small>` : ''}${result}${run.error ? `<p class="form-status is-error">${escape(run.error)}</p>` : ''}</article>`;
-  };
-  const copyAdminAiResult = async event => {
-    const button = event.target.closest('[data-copy-admin-ai-result]');
-    if (!button) return;
-    const source = button.closest('.order-card')?.querySelector('[data-admin-ai-copy-source]');
-    if (!source) return;
-    try {
-      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(source.value);
-      else {
-        const temporary = document.createElement('textarea');
-        temporary.value = source.value;
-        temporary.style.position = 'fixed';
-        temporary.style.opacity = '0';
-        document.body.appendChild(temporary);
-        temporary.select();
-        const copied = document.execCommand('copy');
-        temporary.remove();
-        if (!copied) throw new Error('Clipboard unavailable');
-      }
-      button.textContent = 'Copied';
-    } catch {
-      button.textContent = 'Copy failed';
-    }
-  };
-  document.querySelector('#admin-ai-test-result')?.addEventListener('click', copyAdminAiResult);
-  adminAiHistory?.addEventListener('click', copyAdminAiResult);
-  const renderAdminAiFields = product => {
-    if (!adminAiFields) return;
-    if (!product) { adminAiFields.innerHTML = ''; return; }
-    adminAiFields.innerHTML = product.fields.map(field => {
-      const id = `admin-ai-field-${field.key}`;
-      const required = field.required ? ' required' : '';
-      const maxLength = ` maxlength="${Number(field.maxLength) || 500}"`;
-      let control = '';
-      if (field.type === 'select') {
-        control = `<select id="${escape(id)}" name="${escape(field.key)}"${required}><option value="">Choose an option</option>${(field.options || []).map(option => `<option value="${escape(option)}">${escape(option)}</option>`).join('')}</select>`;
-      } else if (field.type === 'textarea') {
-        control = `<textarea id="${escape(id)}" name="${escape(field.key)}" rows="3"${maxLength}${required}></textarea>`;
-      } else {
-        control = `<input id="${escape(id)}" name="${escape(field.key)}" type="text"${maxLength}${required}>`;
-      }
-      return `<label class="${field.type === 'textarea' ? 'form-field-full' : ''}" for="${escape(id)}">${escape(field.label)}${field.required ? ' *' : ''}${control}</label>`;
-    }).join('');
-  };
-  const loadAdminAiHistory = async () => {
-    if (!adminAiHistory) return;
-    try {
-      const {data: sessionData} = await db.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) throw new Error('Your administrator session has expired.');
-      const response = await fetch('/api/admin/test-tool', {headers: {authorization: `Bearer ${token}`}, cache: 'no-store'});
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || 'Could not load saved test results.');
-      adminAiHistory.innerHTML = body.runs?.length ? body.runs.map(run => renderAdminAiResult(run, true)).join('') : '<p>No admin AI tests saved yet.</p>';
-    } catch (error) {
-      adminAiHistory.innerHTML = `<p class="form-status is-error">${escape(error.message)}</p>`;
-    }
-  };
-  if (adminAiProduct) {
-    try {
-      const response = await fetch('/api/tools/catalog', {cache: 'no-store'});
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || 'Could not load the AI tools.');
-      const allowed = new Set(Object.keys(adminAiProductNames));
-      const products = (body.tools || []).filter(product => allowed.has(product.slug));
-      products.forEach(product => adminAiTools.set(product.slug, product));
-      adminAiProduct.innerHTML = '<option value="">Choose one tool</option>' + products.map(product => `<option value="${escape(product.slug)}">${escape(product.name)}</option>`).join('');
-      const submitButton = document.querySelector('#admin-ai-test-submit');
-      if (submitButton) submitButton.disabled = products.length !== 3;
-      if (products.length !== 3) setStatus('#admin-ai-test-status', 'The tool catalog did not return all three products. Refresh the admin page before testing.', true);
-    } catch (error) {
-      adminAiProduct.innerHTML = '<option value="">Tools could not be loaded</option>';
-      setStatus('#admin-ai-test-status', error.message, true);
-    }
-    adminAiProduct.addEventListener('change', () => renderAdminAiFields(adminAiTools.get(adminAiProduct.value)));
-    document.querySelector('#admin-ai-test-form')?.addEventListener('submit', async event => {
-      event.preventDefault();
-      const form = event.currentTarget;
-      if (!form.reportValidity()) return;
-      const button = document.querySelector('#admin-ai-test-submit');
-      const product = adminAiProduct.value;
-      const brief = Object.fromEntries([...adminAiFields.querySelectorAll('input,textarea,select')].map(field => [field.name, field.value]));
-      button.disabled = true;
-      setStatus('#admin-ai-test-status', 'Saving a private test record, then requesting the AI result. No checkout or payment will start.');
-      document.querySelector('#admin-ai-test-result').innerHTML = '';
-      try {
-        const {data: sessionData} = await db.auth.getSession();
-        const token = sessionData.session?.access_token;
-        if (!token) throw new Error('Your administrator session has expired. Log in again.');
-        const response = await fetch('/api/admin/test-tool', {method: 'POST', headers: {'content-type': 'application/json', authorization: `Bearer ${token}`}, body: JSON.stringify({product_slug: product, brief, adult_confirmed: document.querySelector('#admin-ai-test-age').checked})});
-        const body = await response.json().catch(() => ({}));
-        if (body.result) document.querySelector('#admin-ai-test-result').innerHTML = renderAdminAiResult({product, status: body.status, result: body.result, usage: body.usage, created_at: new Date().toISOString()});
-        if (!response.ok) throw new Error(body.error || 'The admin AI test failed.');
-        setStatus('#admin-ai-test-status', body.existing ? 'This tool was already tested today. Showing its saved result; no second AI request was made.' : 'Generated and saved. This result is private to the admin test log and was not added to a customer account.');
-        await loadAdminAiHistory();
-      } catch (error) {
-        setStatus('#admin-ai-test-status', error.message, true);
-        await loadAdminAiHistory();
-      } finally {
-        button.disabled = false;
-      }
-    });
-    await loadAdminAiHistory();
-  }
   const contentDefaults = {
     hero_title: 'Professional design, delivered in 24 hours.',
     hero_copy: 'Logos, flyers, social posts, business cards and full brand kits for businesses that want to look the part, at prices that make sense.',
@@ -148,8 +23,6 @@
     services_intro: 'Naira prices. Full payment before work starts. Delivery by email or Google Drive, in PDF and PNG.',
     brief_heading: 'Tell us exactly what you want.',
     brief_intro: 'Fill in this short brief and it will open in WhatsApp as one clear message. Include the look, wording, colours and references you have in mind so we can understand the job before we reply.',
-    validator_heading: 'Check your idea with current country data.',
-    validator_intro: 'Free limited checks use public World Bank country indicators with Gemini analysis. They do not live-search competitors or confirm local laws, customer claims, or current prices; assumptions and evidence gaps are labelled.',
     portfolio_heading: 'See real designs in our full portfolio.',
     portfolio_intro: 'Browse logos, flyers, social posts and brand work in the CREOVATE portfolio.',
     footer_tagline: 'Premium design for businesses that want to look the part.',
@@ -234,92 +107,25 @@
     else if (!orders?.length) box.innerHTML = `<p>${emptyText}</p>`;
     else box.innerHTML = orders.map(order => `<article class="order-card"><strong>${escape(order.service_name)}</strong><span>${formatMoney(order.price)}${order.rush ? ' · Rush' : ''}</span><small>${formatDate(order.created_at)} · ${escape(order.status || 'new')} · Payment: ${escape(order.payment_status || 'pending')} · ${escape(order.brief?.name || '')}</small></article>`).join('');
   };
-  const renderAnalysis = analysis => {
-    if (!analysis || typeof analysis !== 'object') return '';
-    const sections = [
-      ['Business summary', analysis.business_summary], ['Market demand', analysis.market_demand],
-      ['Target audience', analysis.target_audience], ['Competition and differentiation', analysis.competition],
-      ['Revenue model', analysis.revenue_model], ['Financial projections', analysis.financial_projections],
-      ['Setup requirements', analysis.setup_requirements], ['SWOT analysis', analysis.swot],
-      ['Risk assessment', analysis.risk_assessment], ['Validation experiments', analysis.validation_experiments],
-      ['Marketing strategy', analysis.marketing_strategy], ['30-day action plan', analysis.action_plan_30_days],
-      ['First-customer strategy', analysis.first_customer_strategy], ['Unknowns', analysis.unknowns],
-      ['Recommendation', analysis.recommendation]
-    ];
-    const flatten = value => {
-      if (value === null || value === undefined || value === '') return [];
-      if (Array.isArray(value)) return value.flatMap(item => flatten(item));
-      if (typeof value === 'object') return Object.entries(value).flatMap(([key, item]) => flatten(item).map(line => `${key.replace(/[_-]+/g, ' ')}: ${line}`));
-      return [String(value)];
-    };
-    return sections.map(([title, value]) => { const items = flatten(value); return items.length ? `<section><strong>${escape(title)}</strong>${items.length === 1 ? `<p>${escape(items[0])}</p>` : `<ul>${items.map(item => `<li>${escape(item)}</li>`).join('')}</ul>`}</section>` : ''; }).join('');
-  };
-  const renderSavedCheck = check => {
-    const report = String(check.result?.report || '').trim();
-    const sources = Array.isArray(check.result?.sources) ? check.result.sources : [];
-    const input = check.result?.input || {};
-    const sourceList = sources.map(source => {
-      const url = /^https?:\/\//i.test(source.url || '') ? source.url : '#';
-      return `<li><a href="${escape(url)}" target="_blank" rel="noopener noreferrer">${escape(source.title || source.url || 'Source')}</a><small>${escape(source.url || '')} · accessed ${escape(source.accessed_at || check.result?.generated_at || '')}</small></li>`;
-    }).join('');
-    if (!report && !sources.length) return '';
-    return `<details class="validator-history-details"><summary>Open saved report and sources</summary><div class="validator-history-report">${input.stage ? `<p><strong>Stage:</strong> ${escape(input.stage)}</p>` : ''}${input.skills ? `<p><strong>Skills:</strong> ${escape(input.skills)}</p>` : ''}${input.resources ? `<p><strong>Resources:</strong> ${escape(input.resources)}</p>` : ''}${check.result?.analysis ? `<div class="validator-history-analysis"><p><strong>Overall score:</strong> ${escape(check.result.analysis.overall_viability?.score ?? check.score ?? 'Not scored')}/100</p>${renderAnalysis(check.result.analysis)}</div>` : report ? `<div>${escape(report).replace(/\n/g, '<br>')}</div>` : '<p>Report text was not stored.</p>'}</div>${sourceList ? `<div class="validator-history-sources"><strong>Sources and dates</strong><ol>${sourceList}</ol></div>` : ''}</details>`;
-  };
-  const renderChecks = (box, checks, error) => {
-    if (!box) return;
-    if (error) box.innerHTML = `<p class="form-status is-error">${escape(error.message)}</p>`;
-    else if (!checks?.length) box.innerHTML = '<p>No validator checks yet.</p>';
-    else box.innerHTML = checks.map(check => `<article class="order-card"><strong>${escape(check.verdict || 'Validator report')}</strong><span>${escape(check.provider || 'Live source report')}${Array.isArray(check.result?.sources) && check.result.sources.length ? ` · ${check.result.sources.length} sources` : ''}</span><small>${formatDate(check.created_at)} · ${escape(check.idea)} · ${escape(check.audience)}</small>${renderSavedCheck(check)}</article>`).join('');
-  };
-  const loadChecks = async userId => {
-    const build = columns => {
-      let query = db.from('validator_checks').select(columns).order('created_at', {ascending: false}).limit(25);
-      if (userId) query = query.eq('user_id', userId);
-      return query;
-    };
-    const extended = await build('idea,audience,score,verdict,provider,created_at,result');
-    if (!extended.error || !/column .* does not exist/i.test(extended.error.message || '')) return extended;
-    return build('idea,audience,score,verdict,created_at');
-  };
-
-  let monitoring = null;
+  let recentOrders = [];
   let monitoringError = null;
   try {
     const {data: sessionData} = await db.auth.getSession();
     const token = sessionData.session?.access_token;
     if (!token) throw new Error('Your administrator session has expired. Log in again.');
-    const response = await fetch('/api/admin/monitoring', {headers: {authorization: `Bearer ${token}`}, cache: 'no-store'});
+    const response = await fetch('/api/admin/monitoring', {headers: {authorization: 'Bearer ' + token}, cache: 'no-store'});
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body.error || 'Business monitoring could not load.');
-    monitoring = body;
+    if (!response.ok) throw new Error(body.error || 'Recent orders could not load.');
+    recentOrders = body.orders || [];
   } catch (error) {
     monitoringError = error;
   }
-  const recentOrders = monitoring?.orders || [];
-  const toolJobs = monitoring?.jobs || [];
-  const validatorChecks = monitoring?.checks || [];
-  const totals = monitoring?.summary || {};
   renderOrders(document.querySelector('#admin-orders'), recentOrders, monitoringError, 'No saved orders yet.');
-  const summary = document.querySelector('#admin-business-summary');
-  if (summary) summary.innerHTML = monitoringError ? `<p class="form-status is-error">${escape(monitoringError.message)}</p>` : [
-    ['Recent paid revenue', formatMoney(totals.recent_paid_revenue)],
-    ['Paid orders', String(totals.paid_orders || 0)],
-    ['Tool generations completed', String(totals.completed_generations || 0)],
-    ['Tool generations failed', String(totals.failed_generations || 0)],
-    ['Recorded tokens', Number(totals.recorded_tokens || 0).toLocaleString('en-NG')],
-    ['Validator reports / tokens', `${totals.validator_reports || 0} / ${Number(totals.validator_tokens || 0).toLocaleString('en-NG')}`],
-    ['Estimated AI cost', totals.estimated_cost_usd != null ? `$${Number(totals.estimated_cost_usd).toFixed(4)}` : 'Not configured']
-  ].map(([label, value]) => `<div class="admin-summary-card"><span>${escape(label)}</span><strong>${escape(value)}</strong></div>`).join('');
-  const promoJobsBox = document.querySelector('#admin-promo-jobs');
-  const productNames = {promo_studio:'Promo Studio',caption_studio:'Caption Studio',content_planner:'30-Day Content Planner',business_growth_kit:'Business Growth Kit'};
-  if (promoJobsBox) promoJobsBox.innerHTML = monitoringError ? `<p class="form-status is-error">${escape(monitoringError.message)}</p>` : toolJobs.length ? toolJobs.map(job => `<article class="order-card"><strong>${escape(productNames[job.product] || 'CREOVATE for Business')}</strong><span>${escape(job.status || 'unknown')}</span><small>${formatDate(job.completed_at || job.created_at)} · Attempt ${escape(job.generation_attempt || 1)} · ${escape(String(job.usage?.total_tokens || 0))} tokens</small></article>`).join('') : '<p>No CREOVATE for Business generations yet.</p>';
-  renderChecks(document.querySelector('#admin-validator-checks'), validatorChecks, monitoringError);
 
-  const userSelect = document.querySelector('#admin-user-select');
+    const userSelect = document.querySelector('#admin-user-select');
   const passwordSelect = document.querySelector('#password-user-select');
   const userSummary = document.querySelector('#admin-user-summary');
   const userOrders = document.querySelector('#admin-user-orders');
-  const userChecks = document.querySelector('#admin-user-checks');
   const {data: profiles, error: profilesError} = await db.from('profiles').select('id,email,created_at,role').order('created_at', {ascending: false});
   if (profilesError) {
     if (userSelect) userSelect.innerHTML = '<option value="">Could not load customer accounts</option>';
@@ -334,19 +140,13 @@
       if (!userId) {
         userSummary.textContent = '';
         userOrders.innerHTML = '<p>Choose a customer to view their saved activity.</p>';
-        userChecks.innerHTML = '';
         return;
       }
       const profile = profiles.find(item => item.id === userId);
       userSummary.textContent = `${profile?.email || 'Customer'} · account created ${formatDate(profile?.created_at)}${profile?.role === 'admin' ? ' · owner/admin account' : ''}`;
       userOrders.innerHTML = '<p>Loading this customer’s orders…</p>';
-      userChecks.innerHTML = '<p>Loading this customer’s validator checks…</p>';
-      const [orders, checks] = await Promise.all([
-        db.from('orders').select('service_name,price,rush,status,payment_status,created_at,brief').eq('user_id', userId).order('created_at', {ascending: false}),
-        loadChecks(userId)
-      ]);
+      const orders = await db.from('orders').select('service_name,price,rush,status,payment_status,created_at,brief').eq('user_id', userId).order('created_at', {ascending: false});
       renderOrders(userOrders, orders.data, orders.error, 'This customer has no saved orders.');
-      renderChecks(userChecks, checks.data, checks.error);
       });
     }
     if (passwordSelect) {

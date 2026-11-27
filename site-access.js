@@ -1,7 +1,7 @@
 (() => {
   const allowedPages = new Set([
-    'index.html', 'services.html', 'business-tools.html', 'brief.html', 'portfolio.html',
-    'how-it-works.html', 'validator.html', 'faq.html', 'policies.html', 'contact.html',
+    'index.html', 'services.html', 'brief.html', 'portfolio.html',
+    'how-it-works.html', 'faq.html', 'policies.html', 'contact.html',
     'account.html', 'payment-return.html'
   ]);
   const parts = window.location.pathname.split('/').filter(Boolean);

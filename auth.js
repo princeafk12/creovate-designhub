@@ -113,7 +113,7 @@
   const message = (element, text, error = false) => { if (element) { element.textContent = text; element.classList.toggle('is-error', error); } };
   const safeNext = value => {
     const next = String(value || '');
-    const allowed = new Set(['index.html', 'services.html', 'business-tools.html', 'brief.html', 'portfolio.html', 'how-it-works.html', 'validator.html', 'faq.html', 'policies.html', 'contact.html', 'account.html', 'payment-return.html']);
+    const allowed = new Set(['index.html', 'services.html', 'brief.html', 'portfolio.html', 'how-it-works.html', 'faq.html', 'policies.html', 'contact.html', 'account.html', 'payment-return.html']);
     const match = next.match(/^([a-z-]+\.html)(\?service=[a-z0-9-]+)?(#[-a-zA-Z0-9_]+)?$/);
     if (!match || !allowed.has(match[1])) return '';
     if (match[2] && (match[1] !== 'brief.html' || !/^\?service=(logo|flyer|social-post|social-pack|business-card|brand-kit)$/.test(match[2]))) return '';

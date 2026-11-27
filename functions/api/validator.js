@@ -113,6 +113,7 @@ async function generate({env, input, country, countrySource, indicatorsData}) {
 }
 
 export async function onRequestPost({request, env}) {
+  if (env.AI_TOOLS_ENABLED !== 'true') return json({error: 'AI tools are temporarily unavailable.'}, 503);
   if (env.VALIDATOR_PAUSED === 'true') return json({error: 'The Validator is temporarily paused.'}, 503);
   if (String(env.AI_PROVIDER || 'gemini').toLowerCase() !== 'gemini' || !env.GEMINI_API_KEY || !env.GEMINI_MODEL) return json({error: 'The Validator AI service is not configured.'}, 503);
   if (!geminiRegionAllowed(request)) return json({error: 'The Validator is not available in your current region with the configured Gemini service.'}, 403);

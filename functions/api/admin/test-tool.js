@@ -30,6 +30,7 @@ export async function onRequestGet({request, env}) {
 }
 
 export async function onRequestPost({request, env}) {
+  if (env.AI_TOOLS_ENABLED !== 'true') return json({error: 'AI tools are temporarily unavailable.'}, 503);
   let testId = '';
   let recordCreated = false;
   let attemptNumber = 0;

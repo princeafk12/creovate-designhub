@@ -3,6 +3,7 @@ import {firebaseUser, firestoreAdminGet, json} from '../../_lib/firebase.js';
 import {geminiRegionAllowed} from '../../_lib/ai-access.js';
 
 export async function onRequestGet({request, env}) {
+  if (env.AI_TOOLS_ENABLED !== 'true') return json({tools: [], enabled: false, notice: 'AI tools are temporarily unavailable.'}, 200, {'cache-control': 'private, no-store'});
   const provider = String(env.AI_PROVIDER || 'gemini').toLowerCase();
   const aiReady = provider === 'gemini' ? Boolean(env.GEMINI_API_KEY && env.GEMINI_MODEL) : provider === 'openai' && env.AI_PAID_PROVIDER_ENABLED === 'true' ? Boolean(env.OPENAI_API_KEY && env.OPENAI_MODEL) : false;
   const livePaymentConfigReady = Boolean(env.FLW_SECRET_KEY && env.FLW_SECRET_HASH) && !/_TEST-/i.test(env.FLW_SECRET_KEY);

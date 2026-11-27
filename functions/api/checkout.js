@@ -25,15 +25,16 @@ export async function onRequestPost({request, env}) {
   try {
     const user = await firebaseUser(request, env);
     if (!user) return json({error: 'Sign in before creating an order.'}, 401);
+    const input = await request.json().catch(() => ({}));
+    const productSlug = clean(input.product_slug, 80);
+    if (productSlug && env.AI_TOOLS_ENABLED !== 'true') return json({error: 'AI tools are temporarily unavailable. No payment was taken.'}, 503);
     stage = 'checking live checkout settings';
     if (String(env.PAYMENTS_READY).toLowerCase() !== 'true') return json({error: 'Flutterwave checkout is not enabled yet. No payment was taken.'}, 503);
     if (!env.FLW_SECRET_KEY) return json({error: 'Flutterwave secret key is not configured. No payment was taken.'}, 503);
     if (/_TEST-/i.test(env.FLW_SECRET_KEY)) return json({error: 'Live checkout is not ready. Replace the Flutterwave test key with the Live key in Cloudflare Production. No payment was taken.'}, 503);
     if (!env.FLW_SECRET_HASH) return json({error: 'Live checkout is not ready. Add the matching Flutterwave Live webhook hash in Cloudflare Production. No payment was taken.'}, 503);
 
-    const input = await request.json().catch(() => ({}));
     const serviceSlug = clean(input.service_slug, 80);
-    const productSlug = clean(input.product_slug, 80);
     const briefInput = input.brief && typeof input.brief === 'object' ? input.brief : {};
     const brief = Object.fromEntries(Object.entries(briefInput).map(([key, value]) => [key, clean(value)]));
     const rush = Boolean(input.rush);
