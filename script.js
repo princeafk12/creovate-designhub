@@ -33,21 +33,11 @@
 })();
 
 (() => {
-  const getSession = async () => {
-    try {
-      if (!window.CREOVATE_AUTH) return null;
-      const {data} = await window.CREOVATE_AUTH.client().auth.getSession();
-      return data.session || null;
-    } catch (error) { return null; }
-  };
-  const client = () => window.CREOVATE_AUTH.client();
-  const setup = async (form, gate, result) => {
+  const setup = (form, gate) => {
     form.hidden = false;
     if (gate) gate.hidden = true;
-    if (result) result.hidden = false;
-    return getSession();
   };
-  window.CREOVATE_MEMBER = {getSession, client, setup};
+  window.CREOVATE_MEMBER = {setup};
 })();
 
 (() => {
@@ -61,7 +51,6 @@
   const rushOption = document.querySelector('#rush-option');
   const status = document.querySelector('#brief-status');
   const formatNaira = value => `₦${Number(value).toLocaleString('en-NG')}`;
-  const escape = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[character]));
   const RUSH_PRICES = {'social-pack': 31850, 'brand-kit': 54600};
   const applySiteContent = content => {
     const values = content && typeof content === 'object' ? content : {};
@@ -163,9 +152,8 @@
   }
   updateQuote();
 
-  form.addEventListener('submit', async event => {
+  form.addEventListener('submit', event => {
     event.preventDefault();
-    const session = await window.CREOVATE_MEMBER.getSession();
     const data = new FormData(form);
     const selected = selectedService();
     if (!selected) return;
@@ -173,29 +161,19 @@
     const rushSelected = Boolean(data.get('rush')) && selected.rush_enabled;
     const currentPrice = rushSelected ? (RUSH_PRICES[selected.slug] || currentBase) : currentBase;
     const lines = [
-      'Hi CREOVATE - DesignHub, I want to send a design brief.', '',
+      'Hi CREOVATE - DesignHub, I want to send a design brief and arrange payment here on WhatsApp.', '',
       `Service: ${selected.name}`, `Name: ${data.get('name')}`, `Email: ${data.get('email')}`,
       `Business name: ${data.get('business')}`, `Brand name: ${data.get('brand')}`,
       `Price for this brief: ${formatNaira(currentPrice)}${rushSelected ? ' (rush)' : ''}`,
       `Deadline: ${data.get('deadline') || 'Not specified'}`,
       '', `About the business or brand:\n${data.get('description')}`, '', `How I want it to look:\n${data.get('direction')}`,
-      '', `Words and details to include:\n${data.get('copy') || 'Not specified'}`, '', `Reference link(s): ${data.get('references') || 'None'}`
+      '', `Words and details to include:\n${data.get('copy') || 'Not specified'}`, '', `Reference link(s): ${data.get('references') || 'None'}`,
+      '', 'Please confirm the final amount and send the payment link or instructions here on WhatsApp.'
     ];
     const whatsappUrl = `https://wa.me/2348084002972?text=${encodeURIComponent(lines.join('\n'))}`;
-    status.textContent = 'Opening WhatsApp and preparing secure payment…';
-    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
-    try {
-      const response = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: {'content-type': 'application/json', ...(session?.access_token ? {authorization: `Bearer ${session.access_token}`} : {})},
-        body: JSON.stringify({service_slug: selected.slug, rush: rushSelected, brief: Object.fromEntries(data.entries())})
-      });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok || !body.checkout_url) throw new Error(body.error || 'Secure checkout is not configured yet.');
-      status.innerHTML = `Your brief was saved. <a href="${escape(body.checkout_url)}" target="_blank" rel="noopener noreferrer">Continue to Flutterwave payment</a>.`;
-    } catch (error) {
-      status.textContent = `WhatsApp opened. Secure payment is not ready yet: ${error.message}`;
-    }
+    const whatsappWindow = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+    if (whatsappWindow) whatsappWindow.opener = null;
+    status.textContent = 'Your brief opened in WhatsApp. Confirm the final price and payment instructions in that chat.';
   });
   window.CREOVATE_MEMBER.setup(form, gate, status);
   loadPublicSettings();

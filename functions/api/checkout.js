@@ -27,6 +27,7 @@ export async function onRequestPost({request, env}) {
     const user = await firebaseUser(request, env);
     const input = await request.json().catch(() => ({}));
     const productSlug = clean(input.product_slug, 80);
+    if (!productSlug) return json({error: 'Design-service payment is arranged in WhatsApp. No website checkout was started.'}, 409);
     if (productSlug && !user) return json({error: 'Sign in before ordering a business tool.'}, 401);
     if (productSlug && env.AI_TOOLS_ENABLED !== 'true') return json({error: 'AI tools are temporarily unavailable. No payment was taken.'}, 503);
     stage = 'checking live checkout settings';
