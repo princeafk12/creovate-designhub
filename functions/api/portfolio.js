@@ -6,8 +6,7 @@ export async function onRequestGet({env}) {
       env,
       collection: 'portfolio_items',
       where: [['published', true]],
-      limit: 100,
-      orderBy: {field: 'created_at'}
+      limit: 100
     });
     const published = items
       .filter(item => item.title && (item.image_id || item.image_url || item.image))
