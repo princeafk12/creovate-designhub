@@ -17,7 +17,7 @@ export async function onRequestGet({env}) {
         category: item.category || 'Other',
         image_url: item.image_id ? `/api/portfolio/image?id=${encodeURIComponent(item.image_id)}` : item.image_url || item.image
       }));
-    return json({items: published}, 200, {'cache-control': 'public, max-age=60'});
+    return json({items: published});
   } catch (error) {
     console.error('CREOVATE public portfolio load failed', error);
     return json({error: 'Portfolio items could not be loaded.'}, 503);
