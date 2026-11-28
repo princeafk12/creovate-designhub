@@ -40,12 +40,6 @@
     db.from('services').select('*').order('name')
   ]);
   if (settings) {
-    document.querySelector('#launch-active').checked = Boolean(settings.launch_active);
-    document.querySelector('#launch-total').value = settings.launch_spots_total;
-    document.querySelector('#launch-remaining').value = settings.launch_spots_remaining;
-    document.querySelector('#discount-percent').value = settings.discount_percent;
-    document.querySelector('#rush-percent').value = settings.rush_percent;
-    document.querySelector('#offer-message').value = settings.offer_message || '';
     const savedContent = settings.content && typeof settings.content === 'object' ? settings.content : {};
     document.querySelectorAll('[data-content-field]').forEach(field => {
       const key = field.dataset.contentField;
@@ -56,22 +50,8 @@
   if (servicesError) {
     setStatus('#services-status', servicesError.message, true);
   } else if (editor) {
-    editor.innerHTML = (services || []).map(item => `<fieldset class="service-editor" data-slug="${escape(item.slug)}"><legend>${escape(item.name)}</legend><label>Service name<input data-field="name" type="text" value="${escape(item.name)}" required></label><label>Launch price<input data-field="launch_price" type="number" min="0" value="${Number(item.launch_price)}"></label><label>Standard price<input data-field="standard_price" type="number" min="0" value="${Number(item.standard_price)}"></label><label>Delivery time<input data-field="delivery_time" type="text" value="${escape(item.delivery_time)}"></label><label class="check-row">Rush available<input data-field="rush_enabled" type="checkbox" ${item.rush_enabled ? 'checked' : ''}></label><label>Description<textarea data-field="description" rows="2">${escape(item.description)}</textarea></label></fieldset>`).join('');
+    editor.innerHTML = (services || []).map(item => `<fieldset class="service-editor" data-slug="${escape(item.slug)}"><legend>${escape(item.name)}</legend><label>Public price (NGN)<input data-field="launch_price" type="number" min="0" value="${Number(item.launch_price)}" required></label><label>Delivery time<input data-field="delivery_time" type="text" value="${escape(item.delivery_time)}"></label><label class="check-row">Rush available<input data-field="rush_enabled" type="checkbox" ${item.rush_enabled ? 'checked' : ''}></label><label>Description<textarea data-field="description" rows="2">${escape(item.description)}</textarea></label></fieldset>`).join('');
   }
-
-  document.querySelector('#settings-form')?.addEventListener('submit', async event => {
-    event.preventDefault();
-    const result = await db.from('site_settings').update({
-      launch_active: document.querySelector('#launch-active').checked,
-      launch_spots_total: Number(document.querySelector('#launch-total').value),
-      launch_spots_remaining: Number(document.querySelector('#launch-remaining').value),
-      discount_percent: Number(document.querySelector('#discount-percent').value),
-      rush_percent: Number(document.querySelector('#rush-percent').value),
-      offer_message: document.querySelector('#offer-message').value.trim(),
-      updated_at: new Date().toISOString()
-    }).eq('id', 1);
-    setStatus('#settings-status', result.error ? result.error.message : 'Offer settings saved.', Boolean(result.error));
-  });
 
   document.querySelector('#save-services')?.addEventListener('click', async () => {
     const updates = Array.from(document.querySelectorAll('.service-editor')).map(serviceEditor => {
@@ -79,7 +59,7 @@
       return db.from('services').update({
         name: read('name').value.trim(),
         launch_price: Number(read('launch_price').value),
-        standard_price: Number(read('standard_price').value),
+        standard_price: Number(read('launch_price').value),
         delivery_time: read('delivery_time').value,
         rush_enabled: read('rush_enabled').checked,
         description: read('description').value,

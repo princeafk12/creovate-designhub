@@ -4,13 +4,14 @@ import {releaseGenerationCapacity, releaseOrderCapacity, reserveGenerationCapaci
 import {ageConfirmationReceived, geminiRegionAllowed} from '../_lib/ai-access.js';
 
 const FALLBACK_SERVICES = {
-  logo: {slug: 'logo', name: 'Logo design', launch_price: 5600, standard_price: 8000, rush_enabled: false, rush_percent: 30, delivery_time: '24 hours'},
-  flyer: {slug: 'flyer', name: 'Flyer / poster', launch_price: 3500, standard_price: 5000, rush_enabled: false, rush_percent: 30, delivery_time: '24 hours'},
-  'social-post': {slug: 'social-post', name: 'Social media post', launch_price: 2800, standard_price: 4000, rush_enabled: false, rush_percent: 30, delivery_time: '24 hours'},
-  'social-pack': {slug: 'social-pack', name: 'Social media pack', launch_price: 24500, standard_price: 35000, rush_enabled: true, rush_percent: 30, delivery_time: '5 days'},
-  'business-card': {slug: 'business-card', name: 'Business card', launch_price: 3500, standard_price: 5000, rush_enabled: false, rush_percent: 30, delivery_time: '24 hours'},
-  'brand-kit': {slug: 'brand-kit', name: 'Full brand kit', launch_price: 42000, standard_price: 60000, rush_enabled: true, rush_percent: 30, delivery_time: '10 days'}
+  logo: {slug: 'logo', name: 'Logo design', launch_price: 5600, standard_price: 8000, rush_enabled: false, delivery_time: '24 hours'},
+  flyer: {slug: 'flyer', name: 'Flyer / poster', launch_price: 3500, standard_price: 5000, rush_enabled: false, delivery_time: '24 hours'},
+  'social-post': {slug: 'social-post', name: 'Social media post', launch_price: 2800, standard_price: 4000, rush_enabled: false, delivery_time: '24 hours'},
+  'social-pack': {slug: 'social-pack', name: 'Social media pack', launch_price: 24500, standard_price: 35000, rush_enabled: true, delivery_time: '5 days'},
+  'business-card': {slug: 'business-card', name: 'Business card', launch_price: 3500, standard_price: 5000, rush_enabled: false, delivery_time: '24 hours'},
+  'brand-kit': {slug: 'brand-kit', name: 'Full brand kit', launch_price: 42000, standard_price: 60000, rush_enabled: true, delivery_time: '10 days'}
 };
+const RUSH_PRICES = {'social-pack': 31850, 'brand-kit': 54600};
 
 const clean = (value, max = 600) => String(value ?? '').trim().slice(0, max);
 
@@ -21,12 +22,12 @@ async function readDocument(env, collection, documentId, fallback = null) {
 export async function onRequestPost({request, env}) {
   let allocatedReservation;
   let allocatedOrderId;
-  let stage = 'checking your sign-in';
+  let stage = 'checking your order';
   try {
     const user = await firebaseUser(request, env);
-    if (!user) return json({error: 'Sign in before creating an order.'}, 401);
     const input = await request.json().catch(() => ({}));
     const productSlug = clean(input.product_slug, 80);
+    if (productSlug && !user) return json({error: 'Sign in before ordering a business tool.'}, 401);
     if (productSlug && env.AI_TOOLS_ENABLED !== 'true') return json({error: 'AI tools are temporarily unavailable. No payment was taken.'}, 503);
     stage = 'checking live checkout settings';
     if (String(env.PAYMENTS_READY).toLowerCase() !== 'true') return json({error: 'Flutterwave checkout is not enabled yet. No payment was taken.'}, 503);
@@ -77,15 +78,12 @@ export async function onRequestPost({request, env}) {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(brief.email)) return json({error: 'Enter a valid email address.'}, 400);
       item = await readDocument(env, 'services', serviceSlug, FALLBACK_SERVICES[serviceSlug]);
       if (!item) return json({error: 'That service is not available.'}, 400);
-      const settings = await readDocument(env, 'site_settings', '1', {launch_active: true, launch_spots_remaining: 15, rush_percent: 30});
-      const launchActive = settings.launch_active !== false && Number(settings.launch_spots_remaining ?? 0) > 0;
       const standardPrice = Number(item.standard_price);
       const launchPrice = Number(item.launch_price);
       if (!Number.isInteger(standardPrice) || standardPrice < 0 || !Number.isInteger(launchPrice) || launchPrice < 0) return json({error: 'The selected service price is not configured correctly.'}, 503);
-      const basePrice = launchActive ? launchPrice : standardPrice;
-      rushEnabled = Boolean(item.rush_enabled);
-      const rushRate = Number(item.rush_percent || settings.rush_percent || 30);
-      price = rush && rushEnabled ? Math.round(basePrice * (1 + rushRate / 100)) : basePrice;
+      const basePrice = launchPrice;
+      rushEnabled = Boolean(item.rush_enabled && RUSH_PRICES[serviceSlug]);
+      price = rush && rushEnabled ? RUSH_PRICES[serviceSlug] : basePrice;
       customerName = customerName || brief.name;
     }
     allocatedOrderId = orderId;
@@ -93,10 +91,10 @@ export async function onRequestPost({request, env}) {
     const createdAt = new Date().toISOString();
     const order = {
       id: orderId,
-      user_id: user.uid,
+      user_id: user?.uid || null,
       order_type: isToolOrder ? 'tool' : 'design',
       product_slug: isToolOrder ? productSlug : null,
-      customer_email: user.email || String(brief.email || '').toLowerCase(),
+      customer_email: user?.email || String(brief.email || '').toLowerCase(),
       service_slug: isToolOrder ? null : serviceSlug,
       service_name: String(item.name || (isToolOrder ? productSlug : serviceSlug)),
       price,
@@ -122,8 +120,8 @@ export async function onRequestPost({request, env}) {
         amount: price,
         currency,
         redirect_url: `${appBaseUrl}/payment-return.html?order_id=${encodeURIComponent(orderId)}`,
-        customer: {email: user.email || brief.email, name: customerName},
-        meta: {order_id: orderId, user_id: user.uid, order_type: order.order_type, product_slug: productSlug || serviceSlug},
+        customer: {email: user?.email || brief.email, name: customerName},
+        meta: {order_id: orderId, ...(user?.uid ? {user_id: user.uid} : {}), order_type: order.order_type, product_slug: productSlug || serviceSlug},
         customizations: {title: 'CREOVATE DesignHub', description: String(item.name || productSlug || serviceSlug)},
         ...(isToolOrder ? {configuration: {session_duration: 20, max_retry_attempt: 3}, link_expiration: new Date(Date.now() + 20 * 60 * 1000).toISOString()} : {})
       })
@@ -136,7 +134,7 @@ export async function onRequestPost({request, env}) {
     }
 
     await sendOrderEmail(env, {
-      to: [user.email || brief.email],
+      to: [user?.email || brief.email],
       subject: `CREOVATE ${order.service_name} order received`,
       text: `Your CREOVATE order was received. Complete payment using the checkout link. Reference: ${txRef}`,
       html: `<p>Your CREOVATE order for <strong>${escapeHtml(order.service_name)}</strong> was received.</p><p>Complete payment to begin. Reference: ${escapeHtml(txRef)}</p>`,

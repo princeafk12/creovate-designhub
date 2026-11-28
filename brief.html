@@ -10,15 +10,14 @@
   <script>document.documentElement.classList.add('auth-pending')</script>
 </head>
 <body>
-<a class="skip-link" href="#main">Skip to content</a><header class="site-header"><div class="wrap header-inner"><a class="logo" href="index.html" aria-label="CREOVATE DesignHub home">CREOVATE <span>—</span><br>DesignHub</a><button class="menu-toggle" type="button" aria-label="Open website menu" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button><nav id="site-nav" class="site-nav" aria-label="Website pages"><a href="index.html">Home</a><a href="services.html">Services</a><a href="brief.html" aria-current="page">Send a brief</a><a href="portfolio.html">Portfolio</a><a href="how-it-works.html">How it works</a><a href="faq.html">FAQ</a><a href="policies.html">Policies</a><a href="contact.html">Contact</a><a href="account.html">My account</a></nav></div></header>
+<a class="skip-link" href="#main">Skip to content</a><header class="site-header"><div class="wrap header-inner"><a class="logo" href="index.html" aria-label="CREOVATE DesignHub home">CREOVATE <span>—</span><br>DesignHub</a><button class="menu-toggle" type="button" aria-label="Open website menu" aria-expanded="false" aria-controls="site-nav"><span></span><span></span><span></span></button><nav id="site-nav" class="site-nav" aria-label="Website pages"><a href="index.html">Home</a><a href="services.html">Services</a><a href="brief.html" aria-current="page">Send a brief</a><a href="portfolio.html">Portfolio</a><a href="how-it-works.html">How it works</a><a href="faq.html">FAQ</a><a href="policies.html">Policies</a><a href="contact.html">Contact</a></nav></div></header>
   <main id="main">
 <section id="brief" class="section section-light brief-section">
       <div class="wrap narrow brief-wrap">
         <p class="eyebrow eyebrow-dark">Start your order</p>
         <h2 data-content-text="brief_heading">Tell us exactly what you want.</h2>
         <p class="section-intro" data-content-text="brief_intro">Fill in this short brief and it will open in WhatsApp as one clear message. Include the look, wording, colours and references you have in mind so we can understand the job before we reply.</p>
-        <div id="brief-gate" class="member-gate" hidden><h3>Sign in before sending a brief.</h3><p>Create a free customer account or log in so your brief and order record stay connected to you.</p><a class="button button-dark" href="signup.html?next=brief.html">Create an account or log in</a></div>
-        <form id="brief-form" class="brief-form" hidden>
+        <form id="brief-form" class="brief-form">
           <div class="form-grid">
             <label class="form-field">Your name<input name="name" type="text" autocomplete="name" required></label>
             <label class="form-field">Email address<input name="email" type="email" autocomplete="email" required></label>
@@ -26,8 +25,8 @@
             <label class="form-field">Brand name to show on the design<input name="brand" type="text" required></label>
             <label class="form-field">What do you need?<select name="service" required><option value="" selected disabled>Choose a service</option><option data-launch="5600" data-standard="8000" data-rush="false">Logo design</option><option data-launch="3500" data-standard="5000" data-rush="false">Flyer / poster</option><option data-launch="2800" data-standard="4000" data-rush="false">Social media post</option><option data-launch="24500" data-standard="35000" data-rush="true">Social media pack</option><option data-launch="3500" data-standard="5000" data-rush="false">Business card</option><option data-launch="42000" data-standard="60000" data-rush="true">Full brand kit</option></select></label>
             <label class="form-field">When do you need it?<input name="deadline" type="text" placeholder="For example: this Friday"></label>
-            <div class="price-summary form-field-full" aria-live="polite"><span class="price-label">Your price</span><strong id="brief-price">Choose a service</strong><span id="brief-price-note">The first 15 bookings after launch receive the launch price. Standard price applies after that.</span></div>
-            <label id="rush-option" class="rush-option form-field-full"><span><input name="rush" type="checkbox" disabled> Add rush delivery (+30%)</span><small id="rush-note">Rush delivery is available for the Social Media Pack and Full Brand Kit only.</small></label>
+            <div class="price-summary form-field-full" aria-live="polite"><span class="price-label">Your price</span><strong id="brief-price">Choose a service</strong><span id="brief-price-note">One clear price for each service. Full payment is required before work begins.</span></div>
+            <label id="rush-option" class="rush-option form-field-full"><span><input name="rush" type="checkbox" disabled> Add rush delivery</span><small id="rush-note">Rush delivery is available for the Social Media Pack and Full Brand Kit only.</small></label>
             <label class="form-field form-field-full">Tell us about your business or brand<textarea name="description" rows="4" required placeholder="What do you do, who is it for, and what should people understand?"></textarea></label>
             <label class="form-field form-field-full">Describe how you want it to look<textarea name="direction" rows="4" required placeholder="Colours, mood, layout, style, examples you like, and anything you want us to avoid."></textarea></label>
             <label class="form-field form-field-full">What should the design say?<textarea name="copy" rows="4" placeholder="Final wording, offer, phone number, address, social handle, event details, or other text."></textarea></label>
