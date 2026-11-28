@@ -14,38 +14,16 @@
   const placeholder = 'portfolio/placeholder.svg';
   if (!grid || !filters || !count || !modal || !modalImage || !modalTitle || !modalCategory || !close) return;
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[character]));
-  const imageUrl = item => item.remote ? item.image || item.image_url || placeholder : `portfolio/images/${item.image}`;
-  const imageLoads = new Map();
+  const imageUrl = item => {
+    if (item.remote) return item.image || item.image_url || placeholder;
+    const version = ['01-editing-desk.jpg', '03-creovate-flyer.jpg', '11-business-owners.jpg'].includes(item.image) ? '?v=20261128' : '';
+    return `portfolio/images/${item.image}${version}`;
+  };
   let active = 'All work';
   let activeModalItem = null;
   const renderFilters = () => {
     const categories = ['All work', ...new Set(items.map(item => item.category))];
     filters.innerHTML = categories.map(category => `<button class="portfolio-filter${category === active ? ' is-active' : ''}" type="button" data-category="${escapeHtml(category)}">${escapeHtml(category)}</button>`).join('');
-  };
-  const loadPortfolioImage = item => {
-    if (!item.image_id) return Promise.resolve('');
-    if (item.image) return Promise.resolve(item.image);
-    if (imageLoads.has(item.image_id)) return imageLoads.get(item.image_id);
-    const promise = window.firebase.firestore().collection('portfolio_images').doc(item.image_id).get()
-      .then(snapshot => {
-        const dataUrl = snapshot.data()?.data_url || '';
-        if (dataUrl) {
-          item.image = dataUrl;
-          grid.querySelectorAll(`[data-portfolio-image-id="${CSS.escape(item.image_id)}"]`).forEach(node => {
-            node.src = dataUrl;
-            if (node.parentElement?.tagName === 'A') node.parentElement.href = dataUrl;
-          });
-          if (activeModalItem === item) modalImage.src = dataUrl;
-        }
-        return dataUrl;
-      })
-      .catch(error => {
-        imageLoads.delete(item.image_id);
-        console.warn('A portfolio image could not be loaded.', error);
-        return '';
-      });
-    imageLoads.set(item.image_id, promise);
-    return promise;
   };
   const revealCards = () => {
     const cards = [...grid.querySelectorAll('.portfolio-card-reveal')];
@@ -60,33 +38,14 @@
     }), {rootMargin: '0px 0px -7% 0px', threshold: .08});
     cards.forEach(card => observer.observe(card));
   };
-  const observeRemoteImages = () => {
-    const images = [...grid.querySelectorAll('img[data-portfolio-image-id]')];
-    if ('IntersectionObserver' in window) {
-      const observer = new IntersectionObserver(entries => entries.forEach(entry => {
-        if (!entry.isIntersecting) return;
-        observer.unobserve(entry.target);
-        const item = items[Number(entry.target.closest('[data-index]')?.dataset.index)];
-        if (item) loadPortfolioImage(item);
-      }), {rootMargin: '240px'});
-      images.forEach(image => observer.observe(image));
-    } else {
-      images.forEach(image => {
-        const item = items[Number(image.closest('[data-index]')?.dataset.index)];
-        if (item) loadPortfolioImage(item);
-      });
-    }
-  };
   const render = () => {
     const visible = active === 'All work' ? items : items.filter(item => item.category === active);
     count.textContent = `${visible.length} selected ${visible.length === 1 ? 'piece' : 'pieces'}`;
     grid.innerHTML = visible.map((item, index) => {
       const url = imageUrl(item);
-      const imageId = item.remote ? item.image_id || '' : '';
-      return `<a class="portfolio-card portfolio-card-reveal" style="--portfolio-delay:${Math.min(index, 8) * 45}ms" href="${escapeHtml(url)}" data-index="${items.indexOf(item)}"><img src="${escapeHtml(url)}"${imageId ? ` data-portfolio-image-id="${escapeHtml(imageId)}"` : ''} alt="${escapeHtml(item.title)}" loading="${index < 6 ? 'eager' : 'lazy'}"><span class="portfolio-card-body"><span class="portfolio-card-title">${escapeHtml(item.title)}</span><span class="portfolio-card-category">${escapeHtml(item.category)}</span></span></a>`;
+      return `<a class="portfolio-card portfolio-card-reveal" style="--portfolio-delay:${Math.min(index, 8) * 45}ms" href="${escapeHtml(url)}" data-index="${items.indexOf(item)}"><img src="${escapeHtml(url)}" alt="${escapeHtml(item.title)}" loading="${index < 6 ? 'eager' : 'lazy'}"><span class="portfolio-card-body"><span class="portfolio-card-title">${escapeHtml(item.title)}</span><span class="portfolio-card-category">${escapeHtml(item.category)}</span></span></a>`;
     }).join('');
     revealCards();
-    observeRemoteImages();
   };
   const openModal = item => {
     activeModalItem = item;
@@ -97,17 +56,14 @@
     modal.hidden = false;
     document.body.style.overflow = 'hidden';
     close.focus();
-    if (item.remote) loadPortfolioImage(item);
   };
   const loadRemoteItems = async () => {
-    const app = window.firebase;
-    if (!app || !window.CREOVATE_FIREBASE_CONFIG) return;
     try {
-      if (!app.apps.length) app.initializeApp(window.CREOVATE_FIREBASE_CONFIG);
-      const snapshot = await app.firestore().collection('portfolio_items').where('published', '==', true).limit(100).get();
-      const remoteItems = snapshot.docs.map(doc => ({remote: true, id: doc.id, ...doc.data()}))
-        .filter(item => item.title && (item.image_id || item.image || item.image_url))
-        .sort((left, right) => String(right.created_at || '').localeCompare(String(left.created_at || '')));
+      const response = await fetch('/api/portfolio', {cache: 'no-store'});
+      if (!response.ok) throw new Error('Portfolio uploads could not be loaded.');
+      const body = await response.json();
+      const remoteItems = (body.items || []).map(item => ({remote: true, ...item}))
+        .filter(item => item.title && item.image_url);
       if (!remoteItems.length) return;
       items = [...remoteItems, ...staticItems];
       renderFilters();

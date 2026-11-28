@@ -159,42 +159,27 @@
 
   const portfolioForm = document.querySelector('#portfolio-upload-form');
   const portfolioList = document.querySelector('#portfolio-admin-list');
-  const portfolioFirestore = window.firebase?.firestore ? window.firebase.firestore() : null;
-  const portfolioId = () => typeof crypto?.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   const portfolioPlaceholder = 'portfolio/placeholder.svg';
-  const loadPortfolioImage = async (imageId, imageNode) => {
-    if (!imageId || !imageNode || imageNode.dataset.loaded === 'true') return;
-    imageNode.dataset.loaded = 'true';
-    try {
-      const snapshot = await portfolioFirestore.collection('portfolio_images').doc(imageId).get();
-      const image = snapshot.data()?.data_url;
-      if (image) imageNode.src = image;
-    } catch {
-      imageNode.dataset.loaded = 'false';
-    }
-  };
-  const renderPortfolioItems = async snapshot => {
-    if (!portfolioList) return;
-    const items = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
-    portfolioList.innerHTML = items.length ? items.map(item => `<article class="portfolio-admin-item"><img src="${escape(item.image_url || portfolioPlaceholder)}" data-admin-image-id="${escape(item.image_id || '')}" alt=""><div><strong>${escape(item.title)}</strong><span>${escape(item.category || 'Other')}</span><small>${item.published ? 'Published' : 'Hidden'} · ${escape(formatDate(item.created_at))}</small></div></article>`).join('') : '<p>No uploaded portfolio pieces yet.</p>';
-    const images = [...portfolioList.querySelectorAll('img[data-admin-image-id]')].filter(image => image.dataset.adminImageId);
-    if ('IntersectionObserver' in window) {
-      const observer = new IntersectionObserver(entries => entries.forEach(entry => {
-        if (!entry.isIntersecting) return;
-        observer.unobserve(entry.target);
-        loadPortfolioImage(entry.target.dataset.adminImageId, entry.target);
-      }), {rootMargin: '160px'});
-      images.forEach(image => observer.observe(image));
-    } else {
-      await Promise.all(images.map(image => loadPortfolioImage(image.dataset.adminImageId, image)));
-    }
+  const portfolioRequest = async (method = 'GET', payload) => {
+    const {data: sessionData} = await db.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) throw new Error('Your administrator session has expired. Log in again.');
+    const response = await fetch('/api/admin/portfolio', {
+      method,
+      headers: {authorization: `Bearer ${token}`, ...(payload ? {'content-type': 'application/json'} : {})},
+      ...(payload ? {body: JSON.stringify(payload)} : {}),
+      cache: 'no-store'
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || 'Portfolio request failed.');
+    return body;
   };
   const loadPortfolioItems = async () => {
-    if (!portfolioList || !portfolioFirestore) return;
+    if (!portfolioList) return;
     portfolioList.innerHTML = '<p>Loading uploaded portfolio pieces…</p>';
     try {
-      const snapshot = await portfolioFirestore.collection('portfolio_items').orderBy('created_at', 'desc').limit(50).get();
-      await renderPortfolioItems(snapshot);
+      const {items = []} = await portfolioRequest();
+      portfolioList.innerHTML = items.length ? items.map(item => `<article class="portfolio-admin-item"><img src="${escape(item.image_url || portfolioPlaceholder)}" alt=""><div><strong>${escape(item.title)}</strong><span>${escape(item.category || 'Other')}</span><small>${item.published ? 'Published' : 'Hidden'} · ${escape(formatDate(item.created_at))}</small></div></article>`).join('') : '<p>No uploaded portfolio pieces yet.</p>';
     } catch (error) {
       portfolioList.innerHTML = `<p class="form-status is-error">${escape(error.message || 'Could not load portfolio pieces.')}</p>`;
     }
@@ -204,11 +189,9 @@
     const title = document.querySelector('#portfolio-title')?.value.trim() || '';
     const category = document.querySelector('#portfolio-category')?.value || 'Other';
     const file = document.querySelector('#portfolio-image')?.files?.[0];
-    if (!portfolioFirestore) { setStatus('#portfolio-upload-status', 'Portfolio database is not available. Refresh the page and sign in again.', true); return; }
     if (!title || !file) { setStatus('#portfolio-upload-status', 'Add a title and choose an image first.', true); return; }
     if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) { setStatus('#portfolio-upload-status', 'Use a JPG, PNG or WebP image.', true); return; }
     if (file.size > 10 * 1024 * 1024) { setStatus('#portfolio-upload-status', 'That image is larger than 10 MB. Choose a smaller file.', true); return; }
-    const id = portfolioId();
     const submitButton = portfolioForm.querySelector('button[type="submit"]');
     if (submitButton) submitButton.disabled = true;
     setStatus('#portfolio-upload-status', 'Compressing the image for the portfolio…');
@@ -240,15 +223,9 @@
       });
       if (dataUrl.length > 850_000) throw new Error('The compressed image is still too large. Choose a smaller image.');
       setStatus('#portfolio-upload-status', 'Saving and publishing…');
-      const createdAt = new Date().toISOString();
-      const itemRef = portfolioFirestore.collection('portfolio_items').doc(id);
-      const imageRef = portfolioFirestore.collection('portfolio_images').doc(id);
-      await portfolioFirestore.runTransaction(async transaction => {
-        transaction.set(imageRef, {data_url: dataUrl, content_type: blob.type || 'image/webp', created_at: createdAt});
-        transaction.set(itemRef, {id, title, category, image_id: id, published: true, created_at: createdAt});
-      });
+      await portfolioRequest('POST', {title, category, image_data: dataUrl});
       portfolioForm.reset();
-      setStatus('#portfolio-upload-status', 'Published. Refresh the portfolio page to see it.');
+      setStatus('#portfolio-upload-status', 'Published. It is now visible on the public portfolio.');
       await loadPortfolioItems();
     } catch (error) {
       setStatus('#portfolio-upload-status', error.message || 'Portfolio upload failed.', true);
